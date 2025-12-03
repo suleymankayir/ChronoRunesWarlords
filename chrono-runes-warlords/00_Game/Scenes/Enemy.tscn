@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3 uid="uid://ba2sek45nhbyp"]
+
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_nb7h2"]
+[ext_resource type="Script" uid="uid://dubrc0nkl278h" path="res://00_Game/Scripts/Enemy.gd" id="1_q2gq0"]
+[ext_resource type="PackedScene" uid="uid://cwcohovykweop" path="res://00_Game/Scenes/VFX_Explosion.tscn" id="2_17ipn"]
+
+[node name="Enemy" type="Node2D"]
+script = ExtResource("1_q2gq0")
+vfx_hit_scene = ExtResource("2_17ipn")
+
+[node name="Visuals" type="Sprite2D" parent="."]
+modulate = Color(0.7125805, 0.17446586, 0.07228469, 1)
+texture = ExtResource("1_nb7h2")
+
+[node name="ProgressBar" type="ProgressBar" parent="."]
+offset_left = -112.0
+offset_top = -106.0
+offset_right = 109.0
+offset_bottom = -79.0
+value = 50.0
+show_percentage = false
+
+[node name="HPText" type="Label" parent="ProgressBar"]
+layout_mode = 0
+offset_left = 92.0
+offset_top = 2.0
+offset_right = 132.0
+offset_bottom = 25.0

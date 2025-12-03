@@ -1,0 +1,32 @@
+[gd_scene load_steps=5 format=3 uid="uid://btkhd3p5x03cy"]
+
+[ext_resource type="Script" uid="uid://cypy3q22uveim" path="res://00_Game/Scripts/GamePiece.gd" id="1_mxn6v"]
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_wux6c"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wux6c"]
+size = Vector2(64, 64)
+
+[sub_resource type="LabelSettings" id="LabelSettings_mxn6v"]
+font_size = 40
+outline_size = 5
+outline_color = Color(0, 0, 0, 1)
+
+[node name="GamePiece" type="Area2D"]
+script = ExtResource("1_mxn6v")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1_wux6c")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_wux6c")
+
+[node name="Label" type="Label" parent="."]
+offset_left = -19.0
+offset_top = -30.0
+offset_right = 21.0
+offset_bottom = 25.0
+text = "?"
+label_settings = SubResource("LabelSettings_mxn6v")
+horizontal_alignment = 1
+vertical_alignment = 1

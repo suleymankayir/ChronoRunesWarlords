@@ -1,0 +1,37 @@
+[gd_scene load_steps=7 format=3 uid="uid://cwcohovykweop"]
+
+[ext_resource type="Script" uid="uid://tgvn55r7a8hn" path="res://00_Game/Scripts/VFX_Explosion.gd" id="1_c4v72"]
+
+[sub_resource type="Gradient" id="Gradient_iae2s"]
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_c4v72"]
+gradient = SubResource("Gradient_iae2s")
+width = 8
+height = 8
+fill = 2
+
+[sub_resource type="Curve" id="Curve_dweyf"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.9965517, 0.014454246), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="CurveTexture" id="CurveTexture_m0rwc"]
+curve = SubResource("Curve_dweyf")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hgq7v"]
+particle_flag_disable_z = true
+spread = 180.0
+initial_velocity_min = 100.0
+initial_velocity_max = 200.0
+gravity = Vector3(0, 500, 0)
+scale_max = 2.0
+scale_curve = SubResource("CurveTexture_m0rwc")
+
+[node name="VFX_Explosion" type="GPUParticles2D"]
+emitting = false
+amount = 16
+texture = SubResource("GradientTexture2D_c4v72")
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+process_material = SubResource("ParticleProcessMaterial_hgq7v")
+script = ExtResource("1_c4v72")

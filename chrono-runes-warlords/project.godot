@@ -11,13 +11,15 @@ config_version=5
 [application]
 
 config/name="ChronoRunesWarlords"
-run/main_scene="uid://4wbabeo847r3"
+run/main_scene="uid://crnsce80w6oql"
 config/features=PackedStringArray("4.5", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
 
 GM="*res://00_Game/Managers/GameManager.gd"
+Audio="*res://00_Game/Managers/AudioManager.tscn"
+SaveM="*res://00_Game/Managers/SaveManager.gd"
 
 [display]
 
@@ -31,3 +33,4 @@ window/handheld/orientation=1
 
 textures/canvas_textures/default_texture_filter=2
 renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true

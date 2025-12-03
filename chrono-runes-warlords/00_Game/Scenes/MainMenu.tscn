@@ -1,0 +1,72 @@
+[gd_scene load_steps=5 format=3 uid="uid://crnsce80w6oql"]
+
+[ext_resource type="Script" uid="uid://t83jda6b5uml" path="res://00_Game/Scripts/MainMenu.gd" id="1_gs0eq"]
+
+[sub_resource type="Gradient" id="Gradient_pr8wt"]
+colors = PackedColorArray(0.019607844, 0.019607844, 0.019607844, 1, 0.101960786, 0.10980392, 0.17254902, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_gs0eq"]
+gradient = SubResource("Gradient_pr8wt")
+fill = 2
+
+[sub_resource type="LabelSettings" id="LabelSettings_pr8wt"]
+font_size = 64
+outline_size = 12
+outline_color = Color(0, 0, 0, 1)
+shadow_color = Color(1, 0.3019608, 0.3019608, 1)
+shadow_offset = Vector2(4, 4)
+
+[node name="MainMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_gs0eq")
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture2D_gs0eq")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 35
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "CHRONO RUNES"
+label_settings = SubResource("LabelSettings_pr8wt")
+
+[node name="HighScoreLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="StartButton" type="Button" parent="VBoxContainer"]
+self_modulate = Color(0.36078432, 0.8392157, 0.36078432, 1)
+layout_mode = 2
+text = "SAVAŞA BAŞLA"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer"]
+self_modulate = Color(1, 0.3019608, 0.3019608, 1)
+layout_mode = 2
+text = "ÇIKIŞ
+"
