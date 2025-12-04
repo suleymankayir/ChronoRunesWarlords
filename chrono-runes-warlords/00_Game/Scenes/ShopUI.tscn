@@ -1,0 +1,132 @@
+[gd_scene load_steps=6 format=3 uid="uid://cu8qxubn6nwhm"]
+
+[ext_resource type="Script" uid="uid://ckyudvwtqw17e" path="res://00_Game/Scripts/ShopUI.gd" id="1_dxjw3"]
+
+[sub_resource type="Gradient" id="Gradient_4ip2k"]
+colors = PackedColorArray(0.019607844, 0.019607844, 0.019607844, 1, 0.101960786, 0.10980392, 0.17254902, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_dxjw3"]
+gradient = SubResource("Gradient_4ip2k")
+
+[sub_resource type="LabelSettings" id="LabelSettings_4ip2k"]
+font_size = 30
+outline_size = 5
+
+[sub_resource type="LabelSettings" id="LabelSettings_u0iwv"]
+font_size = 22
+
+[node name="ShopUI" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_dxjw3")
+
+[node name="TextureRect" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture2D_dxjw3")
+
+[node name="Label" type="Label" parent="."]
+self_modulate = Color(1, 0.81960785, 0.101960786, 1)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -93.0
+offset_top = 61.0
+offset_right = 99.0
+offset_bottom = 103.0
+grow_horizontal = 2
+text = "DEMİRCİ"
+label_settings = SubResource("LabelSettings_4ip2k")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GoldLabel" type="Label" parent="."]
+self_modulate = Color(1, 0.81960785, 0.101960786, 1)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -137.0
+offset_top = 52.0
+offset_right = -53.0
+offset_bottom = 102.0
+grow_horizontal = 0
+text = "Altın: 0"
+label_settings = SubResource("LabelSettings_u0iwv")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+tooltip_text = "SİLAH"
+theme_override_constants/separation = 50
+alignment = 1
+
+[node name="VBoxDmg" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="HBoxContainer/VBoxDmg"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Silah"
+
+[node name="LevelText" type="Label" parent="HBoxContainer/VBoxDmg"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Lvl 1"
+
+[node name="BuyButton_Dmg" type="Button" parent="HBoxContainer/VBoxDmg"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Yükselt (100 G)"
+
+[node name="VBoxHP" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="HBoxContainer/VBoxHP"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Zırh"
+
+[node name="LevelText" type="Label" parent="HBoxContainer/VBoxHP"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Lvl 1"
+
+[node name="BuyButton_HP" type="Button" parent="HBoxContainer/VBoxHP"]
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Yükselt (100 G)"
+
+[node name="BackButton" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 97.0
+offset_top = -136.0
+offset_right = 189.0
+offset_bottom = -82.0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 20
+text = "Geri Dön"

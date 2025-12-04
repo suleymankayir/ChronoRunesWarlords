@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://bb5sh3d2c6k6c"]
+
+[ext_resource type="Texture2D" uid="uid://dqe3xaoewjc3r" path="res://01_Assets/Art/Characters/Fire_Warrior.png" id="1_0qk5r"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_7s5wt"]
+
+[resource]
+script = ExtResource("2_7s5wt")
+id = "hero_fire"
+name = "Ignis"
+title = "Fire Warrior"
+full_body_art = ExtResource("1_0qk5r")
+rarity = 3
+base_hp = 1200
+base_damage = 150
+metadata/_custom_type_script = "uid://chd0do1hdflc"

@@ -65,6 +65,11 @@ self_modulate = Color(0.36078432, 0.8392157, 0.36078432, 1)
 layout_mode = 2
 text = "SAVAŞA BAŞLA"
 
+[node name="SummonButton" type="Button" parent="VBoxContainer"]
+modulate = Color(1, 0.81960785, 0.101960786, 1)
+layout_mode = 2
+text = "SUMMON"
+
 [node name="QuitButton" type="Button" parent="VBoxContainer"]
 self_modulate = Color(1, 0.3019608, 0.3019608, 1)
 layout_mode = 2

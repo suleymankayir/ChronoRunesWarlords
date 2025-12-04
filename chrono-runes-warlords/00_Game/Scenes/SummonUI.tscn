@@ -1,0 +1,182 @@
+[gd_scene load_steps=11 format=3 uid="uid://blcb0s75kivd7"]
+
+[ext_resource type="Script" uid="uid://pmfb60m1vmvs" path="res://00_Game/Scripts/SummonUI.gd" id="1_55uw3"]
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_lm12k"]
+[ext_resource type="Texture2D" uid="uid://lkfuagqxj5d1" path="res://Gemini_Generated_Image_3frxsw3frxsw3frx.png" id="2_liq7g"]
+[ext_resource type="Resource" uid="uid://bb5sh3d2c6k6c" path="res://00_Game/Resources/Characters/Fire_Warrior.tres" id="2_prr32"]
+[ext_resource type="Resource" uid="uid://c62f360tbed0e" path="res://00_Game/Resources/Characters/Dark_Necromancer.tres" id="3_px0dg"]
+[ext_resource type="Resource" uid="uid://bb83ytp50nmqk" path="res://00_Game/Resources/Characters/Light_Knight.tres" id="4_3tpxy"]
+[ext_resource type="Resource" uid="uid://dehw3kv7gpmti" path="res://00_Game/Resources/Characters/Nature_Archer.tres" id="5_1ahmi"]
+[ext_resource type="Resource" uid="uid://c35l4jdd1fro" path="res://00_Game/Resources/Characters/Water_Mage.tres" id="6_wyq21"]
+
+[sub_resource type="Gradient" id="Gradient_0ys0f"]
+colors = PackedColorArray(0, 0, 0, 1, 1.6530219e-05, 1.6530223e-05, 1.6530223e-05, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_lm12k"]
+gradient = SubResource("Gradient_0ys0f")
+
+[node name="SummonUI" type="Control" node_paths=PackedStringArray("btn_summon", "btn_back", "result_card", "hero_label", "hero_image", "btn_claim")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_55uw3")
+btn_summon = NodePath("BtnSummon")
+btn_back = NodePath("BtnBack")
+result_card = NodePath("ResultCard")
+hero_label = NodePath("ResultCard/heroLabel")
+hero_image = NodePath("ResultCard/HeroArt")
+btn_claim = NodePath("ResultCard/BtnClaim")
+possible_rewards = Array[Resource]([ExtResource("2_prr32"), ExtResource("3_px0dg"), ExtResource("4_3tpxy"), ExtResource("5_1ahmi"), ExtResource("6_wyq21")])
+
+[node name="Background" type="TextureRect" parent="."]
+modulate = Color(0.0035191667, 0.0035191681, 0.0035191672, 1)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_lm12k")
+
+[node name="LightRays" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -155.5
+offset_top = -200.0
+offset_right = 155.5
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_liq7g")
+expand_mode = 4
+
+[node name="BtnBack" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 80.0
+offset_top = -80.0
+offset_right = 157.0
+offset_bottom = -49.0
+grow_vertical = 0
+text = "Geri Dön"
+
+[node name="BtnSummon" type="Button" parent="."]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -70.5
+offset_top = -303.0
+offset_right = 70.5
+offset_bottom = -272.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "1x ÇAĞIR(1000 G)"
+
+[node name="Chest" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -64.0
+offset_top = -64.0
+offset_right = 64.0
+offset_bottom = 64.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("1_lm12k")
+
+[node name="ResultCard" type="TextureRect" parent="."]
+custom_minimum_size = Vector2(300, 400)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.5
+offset_top = -247.5
+offset_right = 220.5
+offset_bottom = 247.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Background" type="ColorRect" parent="ResultCard"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 45.0
+offset_right = -37.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.055477925, 0.44363645, 0.5391511, 1)
+
+[node name="HeroArt" type="TextureRect" parent="ResultCard"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 47.0
+offset_top = 14.0
+offset_right = -37.0
+offset_bottom = -46.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 2
+stretch_mode = 5
+
+[node name="heroLabel" type="Label" parent="ResultCard"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -41.5
+offset_top = -39.0
+offset_right = 42.5
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.55954736, 0.20931125, 0.086686574, 1)
+text = "TEST HERO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BtnClaim" type="Button" parent="ResultCard"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -62.5
+offset_top = 26.0
+offset_right = 61.5
+offset_bottom = 57.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "CLAIM"
+
+[node name="ShopPanel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0

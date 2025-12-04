@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://c62f360tbed0e"]
+
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="1_ycip3"]
+[ext_resource type="Texture2D" uid="uid://cl1ijmn8fbn3s" path="res://01_Assets/Art/Characters/Dark_Necromancer.png" id="1_ywwrw"]
+
+[resource]
+script = ExtResource("1_ycip3")
+id = "hero_dark"
+name = "Morgana"
+title = "Dark Necromancer"
+full_body_art = ExtResource("1_ywwrw")
+element = 4
+base_hp = 1100
+base_damage = 200
+metadata/_custom_type_script = "uid://chd0do1hdflc"

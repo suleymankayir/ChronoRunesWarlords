@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://bb83ytp50nmqk"]
+
+[ext_resource type="Texture2D" uid="uid://bqef2xjbxy7u3" path="res://01_Assets/Art/Characters/Light_Knight.png" id="1_vyt0p"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_eqni4"]
+
+[resource]
+script = ExtResource("2_eqni4")
+id = "hero_light"
+name = "Teresa"
+title = "Light Knight"
+full_body_art = ExtResource("1_vyt0p")
+element = 3
+base_hp = 1400
+base_damage = 125
+metadata/_custom_type_script = "uid://chd0do1hdflc"

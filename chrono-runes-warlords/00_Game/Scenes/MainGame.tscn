@@ -1,12 +1,30 @@
-[gd_scene load_steps=10 format=3 uid="uid://4wbabeo847r3"]
+[gd_scene load_steps=15 format=3 uid="uid://4wbabeo847r3"]
 
 [ext_resource type="Script" uid="uid://bkmhg754iqdm6" path="res://00_Game/Scripts/MainGame.gd" id="1_5i4q3"]
 [ext_resource type="Script" uid="uid://bhyu20arjme42" path="res://00_Game/Scripts/BoardManager.gd" id="2_ip4sp"]
 [ext_resource type="PackedScene" uid="uid://cqfbtpfokd7hg" path="res://00_Game/Scenes/GameOverUI.tscn" id="2_twcqs"]
 [ext_resource type="PackedScene" uid="uid://btkhd3p5x03cy" path="res://00_Game/Scenes/GamePiece.tscn" id="3_kyhy4"]
 [ext_resource type="PackedScene" uid="uid://b5b2nihetuer7" path="res://00_Game/Scenes/FloatingText.tscn" id="4_n52v8"]
+[ext_resource type="Shader" uid="uid://b5a4er0ya7wc3" path="res://00_Game/Scenes/MainGame.gdshader" id="4_ql6ba"]
 [ext_resource type="PackedScene" uid="uid://ba2sek45nhbyp" path="res://00_Game/Scenes/Enemy.tscn" id="5_mbifn"]
 [ext_resource type="PackedScene" uid="uid://cwcohovykweop" path="res://00_Game/Scenes/VFX_Explosion.tscn" id="7_vky4x"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_j0l0h"]
+shader = ExtResource("4_ql6ba")
+shader_parameter/speed = Vector2(0.02, 0.01)
+
+[sub_resource type="Gradient" id="Gradient_ql6ba"]
+colors = PackedColorArray(0, 0, 0, 0, 0.45882353, 0.16862746, 0.85882354, 0.39607844)
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_vky4x"]
+frequency = 0.005
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_j0l0h"]
+width = 1024
+height = 1024
+noise = SubResource("FastNoiseLite_vky4x")
+color_ramp = SubResource("Gradient_ql6ba")
+seamless = true
 
 [sub_resource type="Gradient" id="Gradient_vky4x"]
 colors = PackedColorArray(0.7210572, 0.6171627, 0.9964954, 1, 0.8656353, 0.6926587, 1, 1)
@@ -21,9 +39,6 @@ texture_filter = 1
 script = ExtResource("1_5i4q3")
 game_over_scene = ExtResource("2_twcqs")
 
-[node name="Enemy" parent="." instance=ExtResource("5_mbifn")]
-position = Vector2(360, 200)
-
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
 layer = -100
 
@@ -36,6 +51,21 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.07058824, 0.07058824, 0.078431375, 1)
 
+[node name="FogLayer" type="TextureRect" parent="BackgroundLayer"]
+texture_repeat = 2
+material = SubResource("ShaderMaterial_j0l0h")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -152.0
+offset_right = 152.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("NoiseTexture2D_j0l0h")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(360, 640)
+
 [node name="BoardManager" type="Node2D" parent="."]
 script = ExtResource("2_ip4sp")
 tile_size = 85
@@ -43,39 +73,36 @@ piece_scene = ExtResource("3_kyhy4")
 floating_text_scene = ExtResource("4_n52v8")
 vfx_explosion_scene = ExtResource("7_vky4x")
 
-[node name="PlayerHPBar" type="ProgressBar" parent="."]
+[node name="Enemy" parent="." instance=ExtResource("5_mbifn")]
+position = Vector2(360, 200)
+
+[node name="UILayer" type="CanvasLayer" parent="."]
+layer = 100
+
+[node name="PlayerHPBar" type="ProgressBar" parent="UILayer"]
 modulate = Color(0.5744533, 0.64268094, 0.1606799, 1)
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = 230.0
-offset_top = 1147.0
-offset_right = 451.0
-offset_bottom = 1174.0
+offset_left = -130.0
+offset_top = -133.0
+offset_right = 91.0
+offset_bottom = -106.0
 grow_horizontal = 2
 grow_vertical = 0
 value = 100.0
 show_percentage = false
 
-[node name="PlayerHPText" type="Label" parent="PlayerHPBar"]
+[node name="PlayerHPText" type="Label" parent="UILayer/PlayerHPBar"]
 layout_mode = 0
 offset_left = 90.0
 offset_top = 2.0
 offset_right = 130.0
 offset_bottom = 25.0
 
-[node name="ManaBar" type="TextureProgressBar" parent="."]
-modulate = Color(0.67400277, 0.41918883, 0.979716, 1)
-offset_left = 232.0
-offset_top = 1186.0
-offset_right = 450.0
-offset_bottom = 1210.0
-nine_patch_stretch = true
-texture_progress = SubResource("GradientTexture2D_ql6ba")
-
-[node name="SkillButton" type="Button" parent="."]
+[node name="SkillButton" type="Button" parent="UILayer"]
 offset_left = 475.0
 offset_top = 1182.0
 offset_right = 561.0
@@ -83,8 +110,11 @@ offset_bottom = 1213.0
 disabled = true
 text = "ULTIMATE"
 
-[node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(359, 642)
-
-[node name="UILayer" type="CanvasLayer" parent="."]
-layer = 100
+[node name="ManaBar" type="TextureProgressBar" parent="UILayer"]
+modulate = Color(0.67400277, 0.41918883, 0.979716, 1)
+offset_left = 232.0
+offset_top = 1186.0
+offset_right = 450.0
+offset_bottom = 1210.0
+nine_patch_stretch = true
+texture_progress = SubResource("GradientTexture2D_ql6ba")

@@ -2,27 +2,33 @@ extends Node2D
 
 @onready var board_manager: BoardManager = $BoardManager
 @onready var enemy: Enemy = $Enemy
-@onready var player_hp_bar: ProgressBar = $PlayerHPBar # Yolunu kontrol et!
-@onready var player_hp_text: Label = $PlayerHPBar/PlayerHPText
+@onready var player_hp_bar: ProgressBar = $UILayer/PlayerHPBar
+@onready var player_hp_text: Label = $UILayer/PlayerHPBar/PlayerHPText
 @onready var ui_layer: CanvasLayer = $UILayer
-@onready var skill_button: Button = $SkillButton # Yolunu kontrol et!
-@onready var mana_bar: TextureProgressBar = $ManaBar   # Yolunu kontrol et!
+@onready var skill_button: Button = $UILayer/SkillButton
+@onready var mana_bar: TextureProgressBar = $UILayer/ManaBar
 @export var game_over_scene: PackedScene
-
+@onready var fog_layer: TextureRect = $BackgroundLayer/FogLayer
 
 
 var current_level: int = 1
-var gold_earned_this_session: int = 0
+var gold_earned_this_session: int = 10000
 var player_max_hp: int = 500
 var player_current_hp: int = 500
 var is_player_turn: bool = true
 var current_mana: int = 0
 var max_mana: int = 100
 var current_score: int = 0
+var is_level_transitioning: bool = false # Seviye geçişi var mı?
 
 func _ready() -> void:
 	if Audio.bg_music:
 		Audio.play_music(Audio.bg_music)
+		
+	player_max_hp = SaveM.get_player_max_hp()
+	player_current_hp = player_max_hp
+	update_mana_ui()
+	update_player_ui()
 	# GM (GameManager) sinyalini dinle
 	GM.state_changed.connect(_on_game_state_changed)
 	board_manager.damage_dealt.connect(_on_player_damage_dealt)
@@ -31,8 +37,7 @@ func _ready() -> void:
 	enemy.attack_finished.connect(_on_enemy_attack_finished)
 	enemy.died.connect(_on_enemy_died)
 	skill_button.pressed.connect(_on_skill_activated)
-	update_mana_ui()
-	update_player_ui()
+	
 
 # 1. Oyuncu hamlesini yaptı, taşlar patladı, her şey duruldu.
 func _on_board_settled() -> void:
@@ -71,7 +76,7 @@ func take_player_damage(amount: int) -> void:
 	var camera = $Camera2D # Eğer kameran yoksa sahneye ekle!
 	if camera:
 		for i in range(10):
-			var offset = Vector2(randf_range(-5, 5), randf_range(-5, 5))
+			var offset = Vector2(randf_range(-10, 10), randf_range(-10, 10))
 			tween.tween_property(camera, "offset", offset, 0.05)
 		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
 
@@ -129,14 +134,20 @@ func _on_game_state_changed(new_state: GM.GameState) -> void:
 			bg_rect.color = Color("#3e1616")
 			
 func _on_player_damage_dealt(amount: int, type: String) -> void:
-	current_score += amount
-	if is_instance_valid(enemy): # Düşman hala yaşıyor mu?
-		Audio.play_sfx("playerAttack")
-		await get_tree().create_timer(0.2).timeout
-		Audio.play_sfx("enemyHit")
-		enemy.take_damage(amount, type)
-	else:
-		print("Düşman yok! Boşa vuruyoruz.")
+	if is_level_transitioning: return
+	if not is_instance_valid(enemy):
+		return
+	
+	var multiplier = SaveM.get_player_damage_multiplier()
+	var final_damage = int(amount * multiplier)
+		
+	enemy.take_damage(final_damage, type)
+	
+	current_score += final_damage
+	Audio.play_sfx("playerAttack")
+	await get_tree().create_timer(0.2).timeout
+	Audio.play_sfx("enemyHit")
+	
 		
 func _on_mana_gained(amount: int, color_type: String) -> void:
 	if color_type == "blue":
@@ -150,6 +161,8 @@ func _on_mana_gained(amount: int, color_type: String) -> void:
 
 func _on_skill_activated() -> void:
 	if current_mana < max_mana: return
+	
+	if is_level_transitioning: return
 	if not is_instance_valid(enemy): return
 	
 	print("ULTIMATE YETENEK KULLANILDI!")
@@ -167,7 +180,7 @@ func _on_skill_activated() -> void:
 	if camera:
 		var tween = create_tween()
 		for i in range(20):
-			tween.tween_property(camera, "offset", Vector2(randf_range(-15,15), randf_range(-15,15)), 0.02)
+			tween.tween_property(camera, "offset", Vector2(randf_range(-10,10), randf_range(-10,10)), 0.02)
 		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
 
 
@@ -193,8 +206,11 @@ func _process(delta: float) -> void:
 	else:
 		skill_button.scale = Vector2(1.0, 1.0)
 		skill_button.modulate = Color.WHITE
+	if fog_layer:
+		pass
 
 func _on_enemy_died() -> void:
+	is_level_transitioning = true
 	print("Düşman Öldü! Seviye Atlanıyor...")
 	Audio.play_sfx("victory") # Zafer sesi (kısa)
 	
@@ -260,3 +276,4 @@ func spawn_next_enemy() -> void:
 	start_player_turn()
 	
 	print("Yeni Düşman Geldi! Seviye: ", current_level, " | Can: ", new_enemy.max_hp)
+	is_level_transitioning = false

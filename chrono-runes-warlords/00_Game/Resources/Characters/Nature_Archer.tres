@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://dehw3kv7gpmti"]
+
+[ext_resource type="Texture2D" uid="uid://ga4xggrrtxqe" path="res://01_Assets/Art/Characters/Nature_Archer.png" id="1_1gq0h"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_enkhu"]
+
+[resource]
+script = ExtResource("2_enkhu")
+id = "hero_earth"
+name = "Alice"
+title = "Earth Archer"
+full_body_art = ExtResource("1_1gq0h")
+element = 2
+base_hp = 1050
+base_damage = 200
+metadata/_custom_type_script = "uid://chd0do1hdflc"

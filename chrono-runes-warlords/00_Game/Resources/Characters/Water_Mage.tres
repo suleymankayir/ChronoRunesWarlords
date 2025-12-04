@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://c35l4jdd1fro"]
+
+[ext_resource type="Texture2D" uid="uid://rru7krbid5eu" path="res://01_Assets/Art/Characters/Water_Mage.png" id="1_dowjo"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_m6y0l"]
+
+[resource]
+script = ExtResource("2_m6y0l")
+id = "hero_water"
+name = "Elice"
+title = "Water Mage"
+full_body_art = ExtResource("1_dowjo")
+element = 1
+base_damage = 225
+metadata/_custom_type_script = "uid://chd0do1hdflc"

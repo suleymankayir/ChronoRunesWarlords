@@ -1,6 +1,7 @@
 class_name MainMenu extends Control
 
-@onready var start_button: Button = $VBoxContainer/StartButton # İsimleri kontrol et!
+@onready var start_button: Button = $VBoxContainer/StartButton
+@onready var summon_button: Button = $VBoxContainer/SummonButton
 @onready var quit_button: Button = $VBoxContainer/QuitButton
 
 func _ready() -> void:
@@ -9,6 +10,7 @@ func _ready() -> void:
 		Audio.play_music(Audio.bg_music)
 	
 	start_button.pressed.connect(_on_start_pressed)
+	summon_button.pressed.connect(_on_summon_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 	
 	# JUICE: Başlık hafifçe süzülsün (Breathing Effect)
@@ -23,11 +25,13 @@ func _ready() -> void:
 	
 	
 func _on_start_pressed() -> void:
-	# Buton sesi
-	Audio.play_sfx("swap") # Veya özel bir "Start" sesi
 	
-	# Sahne Geçişi (MainGame.tscn yolunu doğru yazdığından emin ol!)
+	Audio.play_sfx("swap") 
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainGame.tscn")
+	
+func _on_summon_pressed() -> void:
+	Audio.play_sfx("swap")
+	get_tree().change_scene_to_file("res://00_Game/Scenes/SummonUI.tscn")
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
