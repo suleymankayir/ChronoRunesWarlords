@@ -1,13 +1,15 @@
-[gd_scene load_steps=11 format=3 uid="uid://blcb0s75kivd7"]
+[gd_scene load_steps=13 format=3 uid="uid://blcb0s75kivd7"]
 
 [ext_resource type="Script" uid="uid://pmfb60m1vmvs" path="res://00_Game/Scripts/SummonUI.gd" id="1_55uw3"]
 [ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_lm12k"]
 [ext_resource type="Texture2D" uid="uid://lkfuagqxj5d1" path="res://Gemini_Generated_Image_3frxsw3frxsw3frx.png" id="2_liq7g"]
 [ext_resource type="Resource" uid="uid://bb5sh3d2c6k6c" path="res://00_Game/Resources/Characters/Fire_Warrior.tres" id="2_prr32"]
+[ext_resource type="AudioStream" uid="uid://dvohnm2a821j7" path="res://01_Assets/Audio/SFX/sfx_summon.wav" id="2_px0dg"]
 [ext_resource type="Resource" uid="uid://c62f360tbed0e" path="res://00_Game/Resources/Characters/Dark_Necromancer.tres" id="3_px0dg"]
 [ext_resource type="Resource" uid="uid://bb83ytp50nmqk" path="res://00_Game/Resources/Characters/Light_Knight.tres" id="4_3tpxy"]
 [ext_resource type="Resource" uid="uid://dehw3kv7gpmti" path="res://00_Game/Resources/Characters/Nature_Archer.tres" id="5_1ahmi"]
 [ext_resource type="Resource" uid="uid://c35l4jdd1fro" path="res://00_Game/Resources/Characters/Water_Mage.tres" id="6_wyq21"]
+[ext_resource type="PackedScene" uid="uid://dslkdb463ys74" path="res://00_Game/Scenes/ShopPopup.tscn" id="8_3tpxy"]
 
 [sub_resource type="Gradient" id="Gradient_0ys0f"]
 colors = PackedColorArray(0, 0, 0, 1, 1.6530219e-05, 1.6530223e-05, 1.6530223e-05, 1)
@@ -15,7 +17,7 @@ colors = PackedColorArray(0, 0, 0, 1, 1.6530219e-05, 1.6530223e-05, 1.6530223e-0
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_lm12k"]
 gradient = SubResource("Gradient_0ys0f")
 
-[node name="SummonUI" type="Control" node_paths=PackedStringArray("btn_summon", "btn_back", "result_card", "hero_label", "hero_image", "btn_claim")]
+[node name="SummonUI" type="Control" node_paths=PackedStringArray("btn_summon", "btn_back", "btn_claim", "result_card", "hero_label", "hero_image")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -25,11 +27,13 @@ grow_vertical = 2
 script = ExtResource("1_55uw3")
 btn_summon = NodePath("BtnSummon")
 btn_back = NodePath("BtnBack")
+btn_claim = NodePath("ResultCard/BtnClaim")
 result_card = NodePath("ResultCard")
 hero_label = NodePath("ResultCard/heroLabel")
 hero_image = NodePath("ResultCard/HeroArt")
-btn_claim = NodePath("ResultCard/BtnClaim")
+sfx_summon_success = ExtResource("2_px0dg")
 possible_rewards = Array[Resource]([ExtResource("2_prr32"), ExtResource("3_px0dg"), ExtResource("4_3tpxy"), ExtResource("5_1ahmi"), ExtResource("6_wyq21")])
+shop_popup_scene = ExtResource("8_3tpxy")
 
 [node name="Background" type="TextureRect" parent="."]
 modulate = Color(0.0035191667, 0.0035191681, 0.0035191672, 1)

@@ -1,59 +1,54 @@
 class_name ShopPopup extends Control
 
-# Ana sisteme haber vermek için sinyaller
-signal closed
-signal purchase_success
-
-# ---------------------------------------------------------
-# REFERANSLAR (Inspector'dan atanacaklar)
-# ---------------------------------------------------------
-@export_group("Internal Refs")
-@export var content_pivot: Control # Büyüyüp küçülecek olan Panel/Pencere
-@export var btn_close: Button      # Çarpı (X) butonu
-@export var btn_buy: Button        # Satın Al butonu
-@export var background_dim: ColorRect # Arkadaki karartı
+# --- UI REFERANSLARI ---
+@export var btn_ad: Button      # +500 Gold (Reklam)
+@export var btn_buy: Button     # +5000 Gold (Satın Al)
+@export var btn_close: Button   # Kapat
+@export var panel_root: Control # Animasyon için panel kökü
 
 func _ready() -> void:
-	# Başlangıçta gizle
-	visible = false
+	# Anchorları tam ekran yap (Garanti olsun)
+	anchors_preset = Control.PRESET_FULL_RECT
 	
-	# Butonları bağla
-	if btn_close:
-		btn_close.pressed.connect(_on_close_pressed)
-	if btn_buy:
-		btn_buy.pressed.connect(_on_buy_pressed)
+	if btn_ad: btn_ad.pressed.connect(_on_ad_pressed)
+	if btn_buy: btn_buy.pressed.connect(_on_buy_pressed)
+	if btn_close: btn_close.pressed.connect(close)
 
-# DIŞARIDAN ÇAĞRILACAK FONKSİYON
 func open() -> void:
-	visible = true
-	# Animasyon: Önce karartı gelir, sonra pencere büyür
-	if background_dim:
-		background_dim.modulate.a = 0.0
-		var t = create_tween()
-		t.tween_property(background_dim, "modulate:a", 1.0, 0.2)
-	
-	if content_pivot:
-		content_pivot.scale = Vector2.ZERO
-		content_pivot.pivot_offset = content_pivot.size / 2 # Ortadan büyümesi için
+	show()
+	# Animasyon: Küçükten büyüğe
+	if panel_root:
+		panel_root.pivot_offset = panel_root.size / 2
+		panel_root.scale = Vector2.ZERO
 		
-		var t2 = create_tween()
-		t2.tween_property(content_pivot, "scale", Vector2.ONE, 0.4)\
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.tween_property(panel_root, "scale", Vector2.ONE, 0.3)
 
-func _on_close_pressed() -> void:
-	# Kapanış animasyonu
-	var t = create_tween()
-	if content_pivot:
-		t.tween_property(content_pivot, "scale", Vector2.ZERO, 0.2)\
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+func close() -> void:
+	# Verimlilik: Animasyon ile kapanabilir veya direkt silinebilir
+	queue_free()
+
+func _on_ad_pressed() -> void:
+	print("📺 Reklam izleniyor...")
 	
-	t.tween_callback(func(): 
-		visible = false
-		closed.emit() # Ana ekrana kapandığını haber ver
-	)
+	# Butonları kilitle (Spam engelleme)
+	if btn_ad: btn_ad.disabled = true
+	if btn_buy: btn_buy.disabled = true
+	
+	# 1 Saniye bekle (Reklam Simülasyonu)
+	await get_tree().create_timer(1.0).timeout
+	
+	# Ödülü ver
+	GM.add_gold(500)
+	print("💰 Reklam Ödülü: 500 Gold eklendi. Yeni Bakiye: ", GM.total_gold)
+	
+	close()
 
 func _on_buy_pressed() -> void:
-	print("💰 Satın alma simülasyonu başarılı!")
-	# Burada gerçek para/elmas ekleme kodu olur
-	purchase_success.emit()
-	_on_close_pressed() # Satın alınca da kapansın
+	print("💳 Satın Alım Gerçekleşti!")
+	
+	# Ödülü ver
+	GM.add_gold(5000)
+	print("💰 Satın Alım: 5000 Gold eklendi. Yeni Bakiye: ", GM.total_gold)
+	
+	close()

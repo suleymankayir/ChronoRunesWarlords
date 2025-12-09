@@ -1,0 +1,58 @@
+[gd_scene load_steps=4 format=3 uid="uid://cmd50b3yqkodr"]
+
+[ext_resource type="Script" uid="uid://d3hu0oxvok14u" path="res://00_Game/Scripts/CollectionUI.gd" id="1_cr5am"]
+[ext_resource type="PackedScene" uid="uid://du3668e3d13to" path="res://00_Game/Scenes/InventorySlot.tscn" id="2_attbi"]
+[ext_resource type="PackedScene" uid="uid://cgifbjnovga4e" path="res://00_Game/Scenes/CharacterDetailPopup.tscn" id="3_ub6kk"]
+
+[node name="CollectionUI" type="Control" node_paths=PackedStringArray("grid_container", "btn_back")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cr5am")
+slot_template = ExtResource("2_attbi")
+popup_scene = ExtResource("3_ub6kk")
+grid_container = NodePath("MarginContainer/ScrollContainer/Grid")
+btn_back = NodePath("BtnBack")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.13863751, 0.13863748, 0.13863748, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 100
+theme_override_constants/margin_right = 20
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Grid" type="GridContainer" parent="MarginContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+columns = 3
+
+[node name="BtnBack" type="Button" parent="."]
+layout_mode = 1
+offset_left = 44.0
+offset_top = 34.0
+offset_right = 140.0
+offset_bottom = 82.0
+text = "< Geri"

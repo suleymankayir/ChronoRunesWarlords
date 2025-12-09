@@ -2,6 +2,7 @@ class_name MainMenu extends Control
 
 @onready var start_button: Button = $VBoxContainer/StartButton
 @onready var summon_button: Button = $VBoxContainer/SummonButton
+@export var btn_collection: Button
 @onready var quit_button: Button = $VBoxContainer/QuitButton
 
 func _ready() -> void:
@@ -11,7 +12,12 @@ func _ready() -> void:
 	
 	start_button.pressed.connect(_on_start_pressed)
 	summon_button.pressed.connect(_on_summon_pressed)
+	
+	if btn_collection:
+		btn_collection.pressed.connect(_on_collection_pressed)
+	
 	quit_button.pressed.connect(_on_quit_pressed)
+	
 	
 	# JUICE: Başlık hafifçe süzülsün (Breathing Effect)
 	var title = $VBoxContainer/TitleLabel # Eğer başlığa isim verdiysen
@@ -32,6 +38,10 @@ func _on_start_pressed() -> void:
 func _on_summon_pressed() -> void:
 	Audio.play_sfx("swap")
 	get_tree().change_scene_to_file("res://00_Game/Scenes/SummonUI.tscn")
+
+func _on_collection_pressed() -> void:
+	Audio.play_sfx("swap")# Varsa ses çal
+	get_tree().change_scene_to_file("res://00_Game/Scenes/CollectionUI.tscn")
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()

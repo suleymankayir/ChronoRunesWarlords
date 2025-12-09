@@ -1,0 +1,70 @@
+[gd_scene load_steps=2 format=3 uid="uid://cgifbjnovga4e"]
+
+[ext_resource type="Script" uid="uid://bc8puj46n4xaq" path="res://00_Game/Scripts/CharacterDetailPopup.gd" id="1_ywjtv"]
+
+[node name="CharacterDetailPopup" type="Control" node_paths=PackedStringArray("hero_image", "hero_name", "hero_rarity", "hero_element", "hero_description", "background_dim")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ywjtv")
+hero_image = NodePath("PopupPanel/VBoxContainer/HeroImage")
+hero_name = NodePath("PopupPanel/VBoxContainer/HeroName")
+hero_rarity = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroRarity")
+hero_element = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroElement")
+hero_description = NodePath("PopupPanel/VBoxContainer/HeroDescription")
+background_dim = NodePath("BackgroundDim")
+
+[node name="BackgroundDim" type="ColorRect" parent="."]
+z_index = -1
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5882353)
+
+[node name="PopupPanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(400, 600)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PopupPanel"]
+layout_mode = 2
+
+[node name="HeroImage" type="TextureRect" parent="PopupPanel/VBoxContainer"]
+custom_minimum_size = Vector2(0, 300)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeroName" type="Label" parent="PopupPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+horizontal_alignment = 1
+
+[node name="InfoRow" type="HBoxContainer" parent="PopupPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="HeroRarity" type="Label" parent="PopupPanel/VBoxContainer/InfoRow"]
+layout_mode = 2
+
+[node name="HeroElement" type="Label" parent="PopupPanel/VBoxContainer/InfoRow"]
+layout_mode = 2
+
+[node name="HeroDescription" type="Label" parent="PopupPanel/VBoxContainer"]
+layout_mode = 2
+autowrap_mode = 2
