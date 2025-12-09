@@ -184,3 +184,7 @@ text = "CLAIM"
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
+
+[node name="ShopPopup" parent="." instance=ExtResource("8_3tpxy")]
+visible = false
+layout_mode = 1

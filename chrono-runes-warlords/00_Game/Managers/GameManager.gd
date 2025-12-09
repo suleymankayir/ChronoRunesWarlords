@@ -16,7 +16,7 @@ enum GameState {
 var current_state: GameState = GameState.BOOT
 
 # --- EKONOMİ VE ENVANTER DEĞİŞKENLERİ (YENİ) ---
-var total_gold: int = 5000 
+var total_gold: int = 0 
 var owned_characters: Array[Resource] = [] 
 
 # --- SABİTLER ---

@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://b0eslqmomf7lw"]
+
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_cjgfr"]
+[ext_resource type="Script" uid="uid://bov0jmnlth7ru" path="res://00_Game/Scripts/HeroSlot.gd" id="2_p3dv7"]
+
+[node name="HeroSlot" type="TextureButton"]
+custom_minimum_size = Vector2(150, 150)
+offset_right = 40.0
+offset_bottom = 40.0
+texture_normal = ExtResource("1_cjgfr")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("2_p3dv7")

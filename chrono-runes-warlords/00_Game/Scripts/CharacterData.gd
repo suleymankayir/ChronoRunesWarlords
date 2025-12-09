@@ -1,19 +1,32 @@
+# SCRIPT 1: CharacterData.gd
 class_name CharacterData extends Resource
 
-enum Element { FIRE, WATER, EARTH, LIGHT, DARK }
+# --- ENUMS ---
 enum Rarity { COMMON, RARE, EPIC, LEGENDARY }
 
-@export_group("Kimlik")
-@export var id: String = "hero_001" # Benzersiz kod (örn: hero_fire)
-@export var name: String = "Karakter Adı"
-@export var title: String = "Unvanı"
-@export_multiline var description: String = "Kısa hikayesi..."
+# --- EXPORT VARIABLES (STRICT TYPING) ---
+@export_group("Identity")
+@export var id: String = "hero_001"
+@export var character_name: String = "Hero Name" # Requested field name
+@export_multiline var description: String = "Hero Description..."
 
-@export_group("Görseller")
-@export var full_body_art: Texture2D # Büyük resmi buraya koyacağız
-@export var element: Element = Element.FIRE
+@export_group("Visuals")
+@export var portrait: Texture2D # Requested field name
+@export var rarity_color: Color = Color.WHITE
+
+@export_group("Stats")
+@export var element_text: String = "Fire"
+@export var level: int = 1
 @export var rarity: Rarity = Rarity.COMMON
 
-@export_group("Güç Değerleri")
-@export var base_hp: int = 1000
-@export var base_damage: int = 100
+# --- BACKWARD COMPATIBILITY ---
+# (Added by Lead Developer to prevent breaking InventorySlot.gd and other systems)
+# These properties map old variable names to the new ones.
+
+var name: String:
+	get: return character_name
+	set(value): character_name = value
+
+var full_body_art: Texture2D:
+	get: return portrait
+	set(value): portrait = value

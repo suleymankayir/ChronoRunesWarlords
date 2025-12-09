@@ -1,8 +1,21 @@
-[gd_scene load_steps=2 format=3 uid="uid://dslkdb463ys74"]
+[gd_scene load_steps=4 format=3 uid="uid://dslkdb463ys74"]
 
 [ext_resource type="Script" uid="uid://ie71qhhsh7w1" path="res://00_Game/Scripts/ShopPopup.gd" id="1_sytsv"]
 
-[node name="ShopPopup" type="Control"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sytsv"]
+bg_color = Color(0.101960786, 0.101960786, 0.18039216, 1)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+
+[sub_resource type="LabelSettings" id="LabelSettings_sytsv"]
+font_size = 32
+font_color = Color(1, 0.2784314, 0.34117648, 1)
+outline_size = 5
+outline_color = Color(0.00069389754, 0.00069389766, 0.0006938976, 1)
+
+[node name="ShopPopup" type="Control" node_paths=PackedStringArray("btn_ad", "btn_buy", "btn_close", "panel_root")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,6 +23,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_sytsv")
+btn_ad = NodePath("PopupPanel/ContentBox/BtnAd")
+btn_buy = NodePath("PopupPanel/ContentBox/BtnBuy")
+btn_close = NodePath("PopupPanel/ContentBox/BtnClose")
+panel_root = NodePath("PopupPanel")
 
 [node name="BackgroundDim" type="ColorRect" parent="."]
 layout_mode = 1
@@ -18,9 +35,10 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.5882353)
+color = Color(0, 0, 0, 0.7058824)
 
-[node name="Panel" type="Panel" parent="."]
+[node name="PopupPanel" type="Panel" parent="."]
+custom_minimum_size = Vector2(500, 400)
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -33,20 +51,38 @@ offset_right = 20.0
 offset_bottom = 20.0
 grow_horizontal = 2
 grow_vertical = 2
+pivot_offset = Vector2(250, 200)
+theme_override_styles/panel = SubResource("StyleBoxFlat_sytsv")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel"]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+[node name="ContentBox" type="VBoxContainer" parent="PopupPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 20
 
-[node name="Label" type="Label" parent="Panel/VBoxContainer"]
+[node name="TitleLabel" type="Label" parent="PopupPanel/ContentBox"]
 layout_mode = 2
+text = "YETERSIZ BAKIYE"
+label_settings = SubResource("LabelSettings_sytsv")
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="BtnAd" type="Button" parent="Panel/VBoxContainer"]
+[node name="BtnAd" type="Button" parent="PopupPanel/ContentBox"]
+modulate = Color(0.82433826, 0.4843617, 0.1267271, 1)
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
+text = "REKLAM IZLE (+500)"
 
-[node name="BtnBuy" type="Button" parent="Panel/VBoxContainer"]
+[node name="BtnBuy" type="Button" parent="PopupPanel/ContentBox"]
+custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
+text = "💎 5000 ALTIN AL"
 
-[node name="BtnClose" type="Button" parent="Panel/VBoxContainer"]
+[node name="BtnClose" type="Button" parent="PopupPanel/ContentBox"]
+custom_minimum_size = Vector2(0, 50)
 layout_mode = 2
+size_flags_vertical = 10
+text = "Kapat"

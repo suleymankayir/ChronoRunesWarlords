@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=2 format=3 uid="uid://c1ppcayv20gvp"]
+
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="1_slb4n"]
+
+[resource]
+script = ExtResource("1_slb4n")
+name = "Dragon"
+rarity = 1
+metadata/_custom_type_script = "uid://chd0do1hdflc"

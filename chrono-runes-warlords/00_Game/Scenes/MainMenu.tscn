@@ -1,6 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://crnsce80w6oql"]
+[gd_scene load_steps=6 format=3 uid="uid://crnsce80w6oql"]
 
 [ext_resource type="Script" uid="uid://t83jda6b5uml" path="res://00_Game/Scripts/MainMenu.gd" id="1_gs0eq"]
+[ext_resource type="PackedScene" uid="uid://cgifbjnovga4e" path="res://00_Game/Scenes/CharacterDetailPopup.tscn" id="2_cekv2"]
 
 [sub_resource type="Gradient" id="Gradient_pr8wt"]
 colors = PackedColorArray(0.019607844, 0.019607844, 0.019607844, 1, 0.101960786, 0.10980392, 0.17254902, 1)
@@ -16,7 +17,7 @@ outline_color = Color(0, 0, 0, 1)
 shadow_color = Color(1, 0.3019608, 0.3019608, 1)
 shadow_offset = Vector2(4, 4)
 
-[node name="MainMenu" type="Control" node_paths=PackedStringArray("btn_collection")]
+[node name="MainMenu" type="Control" node_paths=PackedStringArray("btn_collection", "character_popup")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -25,6 +26,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_gs0eq")
 btn_collection = NodePath("VBoxContainer/BtnCollection")
+character_popup = NodePath("CharacterDetailPopup")
 
 [node name="TextureRect" type="TextureRect" parent="."]
 layout_mode = 1
@@ -80,3 +82,17 @@ self_modulate = Color(1, 0.3019608, 0.3019608, 1)
 layout_mode = 2
 text = "ÇIKIŞ
 "
+
+[node name="CharacterDetailPopup" parent="." instance=ExtResource("2_cekv2")]
+layout_mode = 1
+
+[node name="TestButonu" type="Button" parent="."]
+layout_mode = 0
+offset_left = 200.0
+offset_top = 1074.0
+offset_right = 351.0
+offset_bottom = 1130.0
+text = "TEST
+"
+
+[connection signal="pressed" from="TestButonu" to="." method="_on_main_menu_test_button_pressed"]

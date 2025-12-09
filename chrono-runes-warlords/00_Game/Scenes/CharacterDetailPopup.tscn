@@ -2,7 +2,9 @@
 
 [ext_resource type="Script" uid="uid://bc8puj46n4xaq" path="res://00_Game/Scripts/CharacterDetailPopup.gd" id="1_ywjtv"]
 
-[node name="CharacterDetailPopup" type="Control" node_paths=PackedStringArray("hero_image", "hero_name", "hero_rarity", "hero_element", "hero_description", "background_dim")]
+[node name="CharacterDetailPopup" type="Control" node_paths=PackedStringArray("background_dim", "content_panel", "hero_image", "hero_name", "hero_rarity", "hero_element", "hero_description", "upgrade_button")]
+z_index = 100
+z_as_relative = false
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,12 +12,14 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ywjtv")
+background_dim = NodePath("BackgroundDim")
+content_panel = NodePath("PopupPanel")
 hero_image = NodePath("PopupPanel/VBoxContainer/HeroImage")
 hero_name = NodePath("PopupPanel/VBoxContainer/HeroName")
 hero_rarity = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroRarity")
 hero_element = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroElement")
 hero_description = NodePath("PopupPanel/VBoxContainer/HeroDescription")
-background_dim = NodePath("BackgroundDim")
+upgrade_button = NodePath("PopupPanel/VBoxContainer/UpgradeButton")
 
 [node name="BackgroundDim" type="ColorRect" parent="."]
 z_index = -1
@@ -25,7 +29,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 0.5882353)
+color = Color(0, 0, 0, 0)
 
 [node name="PopupPanel" type="PanelContainer" parent="."]
 custom_minimum_size = Vector2(400, 600)
@@ -35,15 +39,17 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -20.0
-offset_right = 20.0
-offset_bottom = 20.0
+offset_left = -200.0
+offset_top = -300.0
+offset_right = 200.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
+pivot_offset = Vector2(200, 300)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="PopupPanel"]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="HeroImage" type="TextureRect" parent="PopupPanel/VBoxContainer"]
 custom_minimum_size = Vector2(0, 300)
@@ -68,3 +74,6 @@ layout_mode = 2
 [node name="HeroDescription" type="Label" parent="PopupPanel/VBoxContainer"]
 layout_mode = 2
 autowrap_mode = 2
+
+[node name="UpgradeButton" type="Button" parent="PopupPanel/VBoxContainer"]
+layout_mode = 2

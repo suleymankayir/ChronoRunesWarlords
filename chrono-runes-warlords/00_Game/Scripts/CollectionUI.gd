@@ -8,6 +8,7 @@ class_name CollectionUI extends Control
 # --- REFERANSLAR ---
 @export var grid_container: GridContainer
 @export var btn_back: Button
+@export var character_popup: CharacterDetailPopup
 
 func _ready() -> void:
 	# Geri butonunu bağla
@@ -50,17 +51,12 @@ func _populate_grid() -> void:
 		
 		
 func _on_slot_clicked(data: CharacterData) -> void:
-	# [NEW] Popup aç
 	if not popup_scene:
 		push_error("⚠️ HATA: Popup Scene atanmamış!")
 		return
 	var popup = popup_scene.instantiate() as CharacterDetailPopup
-	
 	add_child(popup)
-	
-	popup.set_data(data)
-	
-	popup.open()
+	popup.open(data)
 
 func _on_back_pressed() -> void:
 	# Ana menüye dön
@@ -87,3 +83,14 @@ func _get_color_by_rarity(rarity_enum) -> Color:
 		CharacterData.Rarity.LEGENDARY:
 			return Color.GOLD
 	return Color.WHITE
+
+
+func _on_hero_slot_hero_selected(data: CharacterData) -> void:
+	
+	print(">>> SEÇİLEN KAHRAMAN: ", data.character_name)
+	
+	if character_popup:
+		# Veriyi popup'a paslıyoruz ve açıyoruz
+		character_popup.open(data)
+	else:
+		print("!!! HATA: CollectionUI sahnesine Popup'ı koymayı veya Inspector'dan atamayı unuttun!")
