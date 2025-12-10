@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3 uid="uid://xi1c6bodijdj"]
+
+[ext_resource type="Script" uid="uid://cbfkawr52y7fy" path="res://00_Game/Scripts/CurrencyDisplay.gd" id="1_a7jud"]
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_cexvn"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hcuhp"]
+bg_color = Color(0.19607843, 0.19607843, 0.19607843, 0.7254902)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="CurrencyDisplay" type="PanelContainer" node_paths=PackedStringArray("label_gold")]
+offset_right = 40.0
+offset_bottom = 40.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hcuhp")
+script = ExtResource("1_a7jud")
+label_gold = NodePath("HBoxContainer/Label")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="HBoxContainer"]
+modulate = Color(0.8549549, 0.8459085, 0.26127863, 1)
+layout_mode = 2
+texture = ExtResource("1_cexvn")
+
+[node name="Label" type="Label" parent="HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.83160216, 0.85066783, 0.19115925, 1)
+text = "99999"

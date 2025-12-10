@@ -20,8 +20,9 @@ func show_result(is_victory: bool, final_score:int) -> void:
 	visible = true
 	get_tree().paused = true
 	
-	SaveM.update_high_score(final_score)
-	var best_score = SaveM.game_data["high_score"]
+	# REFACTORED: Use GameEconomy
+	GameEconomy.check_new_high_score(final_score)
+	var best_score = GameEconomy.high_score
 	
 	score_label.text = "SKOR: %d\nEN İYİ: %d" % [final_score, best_score]
 	

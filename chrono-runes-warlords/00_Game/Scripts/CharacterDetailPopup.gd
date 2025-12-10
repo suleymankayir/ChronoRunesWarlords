@@ -22,7 +22,7 @@ const DIM_ALPHA_END: float = 1.0
 @export var hero_description: Label
 @export var upgrade_button: Button
 @export var gold_shop_popup: GoldShopPopup
-@export var equip_button: Button # NEW
+@export var equip_button: Button
 
 # --- PRIVATE VARIABLES ---
 var _current_data: CharacterData
@@ -84,7 +84,6 @@ func _on_close_pressed() -> void:
 func close() -> void:
 	_on_close_pressed()
 
-
 # --- PRIVATE HELPERS ---
 
 func _populate_ui(data: CharacterData) -> void:
@@ -109,6 +108,11 @@ func _populate_ui(data: CharacterData) -> void:
 	if hero_element:
 		hero_element.text = data.element_text
 
+	# [FIX] Update Upgrade Button with Dynamic Cost
+	if upgrade_button:
+		var cost = data.level * 100
+		upgrade_button.text = "UPGRADE (%d G)" % cost
+
 func _update_equip_button_state(in_team: bool) -> void:
 	if not equip_button:
 		return
@@ -119,37 +123,6 @@ func _update_equip_button_state(in_team: bool) -> void:
 	else:
 		equip_button.text = "TAKIMA AL"
 		equip_button.modulate = Color(0.3, 1, 0.3) # Green tint
-
-func _animate_open() -> void:
-	visible = true
-	var tween = create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	
-	if content_panel:
-		content_panel.scale = ANIM_SCALE_START
-		tween.tween_property(content_panel, "scale", ANIM_SCALE_END, ANIM_DURATION)
-		
-	if background_dim:
-		background_dim.modulate.a = DIM_ALPHA_START
-		tween.tween_property(background_dim, "modulate:a", DIM_ALPHA_END, ANIM_DURATION * 0.8)
-
-func _animate_close() -> void:
-	var tween = create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
-	
-	if content_panel:
-		tween.tween_property(content_panel, "scale", Vector2.ZERO, ANIM_DURATION * 0.8)
-		
-	if background_dim:
-		tween.tween_property(background_dim, "modulate:a", DIM_ALPHA_START, ANIM_DURATION * 0.8)
-		
-	tween.chain().tween_callback(func():
-		visible = false
-		popup_closed.emit()
-		queue_free()
-	)
-
-# --- EVENTS ---
 
 func _on_background_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -166,6 +139,10 @@ func _on_upgrade_pressed() -> void:
 		if GameEconomy.spend_gold(cost):
 			# Success
 			_current_data.level += 1
+			
+			# [CRITICAL FIX] Save to GameEconomy immediately!
+			GameEconomy.save_hero_level(_current_data.id, _current_data.level)
+			
 			_populate_ui(_current_data) # Update UI text
 			
 			# Visual Feedback: Punch effect on hero image
@@ -174,7 +151,7 @@ func _on_upgrade_pressed() -> void:
 				tween.tween_property(hero_image, "scale", Vector2(1.2, 1.2), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 				tween.tween_property(hero_image, "scale", Vector2.ONE, 0.1)
 				
-			upgrade_requested.emit(_current_data.id) # Keep existing signal if needed by other systems
+			upgrade_requested.emit(_current_data.id) 
 			print("Upgrade successful! New Level: ", _current_data.level)
 	else:
 		# Failure
@@ -215,7 +192,6 @@ func _shake_button(button: Button) -> void:
 
 # --- TEST FUNCTION (User Requested) ---
 func _on_test_button_pressed() -> void:
-	print(">>> 1. SİNYAL ALINDI: Test butonuna basıldı! <<<") # BU SATIRI EKLE
 	var dummy_data = CharacterData.new()
 	dummy_data.id = "test_999"
 	dummy_data.character_name = "Test Hero" 
@@ -224,10 +200,4 @@ func _on_test_button_pressed() -> void:
 	dummy_data.rarity = CharacterData.Rarity.LEGENDARY
 	dummy_data.rarity_color = Color.GOLD
 	dummy_data.level = 99
-	
-	print(">>> 2. VERİ HAZIRLANDI, OPEN ÇAĞRILIYOR... <<<") # BU SATIRI EKLE
 	open(dummy_data)
-
-
-func _on_test_butonu_pressed() -> void:
-	pass # Replace with function body.

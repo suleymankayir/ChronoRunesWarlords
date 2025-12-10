@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://cmd50b3yqkodr"]
+[gd_scene load_steps=11 format=3 uid="uid://cmd50b3yqkodr"]
 
 [ext_resource type="Script" uid="uid://d3hu0oxvok14u" path="res://00_Game/Scripts/CollectionUI.gd" id="1_cr5am"]
 [ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_qyltj"]
@@ -9,6 +9,7 @@
 [ext_resource type="Resource" uid="uid://bb83ytp50nmqk" path="res://00_Game/Resources/Characters/Light_Knight.tres" id="5_wf1r2"]
 [ext_resource type="Resource" uid="uid://dehw3kv7gpmti" path="res://00_Game/Resources/Characters/Nature_Archer.tres" id="6_it314"]
 [ext_resource type="Resource" uid="uid://c35l4jdd1fro" path="res://00_Game/Resources/Characters/Water_Mage.tres" id="7_esp65"]
+[ext_resource type="PackedScene" uid="uid://xi1c6bodijdj" path="res://00_Game/Scenes/CurrencyDisplay.tscn" id="10_6p7hg"]
 
 [node name="CollectionUI" type="Control" node_paths=PackedStringArray("character_popup", "grid_container", "btn_back")]
 z_index = 100
@@ -83,5 +84,12 @@ text = "< Geri"
 
 [node name="CharacterDetailPopup" parent="." instance=ExtResource("3_ub6kk")]
 layout_mode = 1
+
+[node name="CurrencyDisplay" parent="." instance=ExtResource("10_6p7hg")]
+layout_mode = 0
+offset_left = 498.0
+offset_top = 39.0
+offset_right = 676.0
+offset_bottom = 167.0
 
 [connection signal="hero_selected" from="MarginContainer/ScrollContainer/Grid/HeroSlot" to="." method="_on_hero_slot_hero_selected"]

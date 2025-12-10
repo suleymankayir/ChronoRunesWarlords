@@ -29,8 +29,9 @@ func _ready() -> void:
 		tween.tween_property(title, "scale", Vector2(1.05, 1.05), 1.0)
 		tween.tween_property(title, "scale", Vector2(1.0, 1.0), 1.0)
 	
-	if SaveM.game_data.has("high_score"):
-		var best = SaveM.game_data["high_score"]
+	# REFACTORED: Use GameEconomy
+	if GameEconomy.high_score > 0:
+		var best = GameEconomy.high_score
 		$VBoxContainer/HighScoreLabel.text = "EN YÜKSEK SKOR: " + str(best)
 	
 func _on_start_pressed() -> void:

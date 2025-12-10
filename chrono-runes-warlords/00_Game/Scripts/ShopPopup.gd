@@ -39,8 +39,8 @@ func _on_ad_pressed() -> void:
 	await get_tree().create_timer(1.0).timeout
 	
 	# Ödülü ver
-	GM.add_gold(500)
-	print("💰 Reklam Ödülü: 500 Gold eklendi. Yeni Bakiye: ", GM.total_gold)
+	GameEconomy.add_gold(500) # REFACTORED
+	print("💰 Reklam Ödülü: 500 Gold eklendi. Yeni Bakiye: ", GameEconomy.gold)
 	
 	close()
 
@@ -48,7 +48,7 @@ func _on_buy_pressed() -> void:
 	print("💳 Satın Alım Gerçekleşti!")
 	
 	# Ödülü ver
-	GM.add_gold(5000)
-	print("💰 Satın Alım: 5000 Gold eklendi. Yeni Bakiye: ", GM.total_gold)
+	GameEconomy.add_gold(5000) # REFACTORED
+	print("💰 Satın Alım: 5000 Gold eklendi. Yeni Bakiye: ", GameEconomy.gold)
 	
 	close()

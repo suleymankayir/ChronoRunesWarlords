@@ -43,6 +43,11 @@ func _on_summon_pressed() -> void:
 		if sfx_summon_success:
 			Audio.play_sfx(sfx_summon_success)
 			
+		# [UX FIX] Wait for UI update dip
+		btn_summon.disabled = true # Prevent double click
+		await get_tree().create_timer(0.5).timeout
+		btn_summon.disabled = false
+		
 		_show_result_card()
 		
 	else:
@@ -71,12 +76,16 @@ func _show_result_card() -> void:
 		var data = possible_rewards.pick_random() as CharacterData
 		
 		# 2. GLOBAL ENVANTERE EKLE (Kritik Nokta)
-		GameEconomy.add_hero(data)
+		var refund = GameEconomy.add_hero(data)
 		
 		# 3. UI Güncelle
 		if hero_label:
-			hero_label.text = data.character_name 
-			hero_label.add_theme_color_override("font_color", _get_color_by_rarity(data.rarity))
+			if refund > 0:
+				hero_label.text = "DÖNÜŞTÜRÜLDÜ: +%d ALTIN" % refund
+				hero_label.add_theme_color_override("font_color", Color.YELLOW)
+			else:
+				hero_label.text = data.character_name 
+				hero_label.add_theme_color_override("font_color", _get_color_by_rarity(data.rarity))
 		
 		if hero_image:
 			hero_image.texture = data.portrait

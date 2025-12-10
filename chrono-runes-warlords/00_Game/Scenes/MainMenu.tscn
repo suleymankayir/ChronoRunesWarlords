@@ -1,9 +1,9 @@
 [gd_scene load_steps=8 format=3 uid="uid://crnsce80w6oql"]
 
 [ext_resource type="Script" uid="uid://t83jda6b5uml" path="res://00_Game/Scripts/MainMenu.gd" id="1_gs0eq"]
-[ext_resource type="PackedScene" uid="uid://cgifbjnovga4e" path="res://00_Game/Scenes/CharacterDetailPopup.tscn" id="2_cekv2"]
 [ext_resource type="PackedScene" uid="uid://blcb0s75kivd7" path="res://00_Game/Scenes/SummonUI.tscn" id="2_y6tj7"]
 [ext_resource type="PackedScene" uid="uid://cmd50b3yqkodr" path="res://00_Game/Scenes/CollectionUI.tscn" id="3_trgxq"]
+[ext_resource type="PackedScene" uid="uid://xi1c6bodijdj" path="res://00_Game/Scenes/CurrencyDisplay.tscn" id="5_trgxq"]
 
 [sub_resource type="Gradient" id="Gradient_pr8wt"]
 colors = PackedColorArray(0.019607844, 0.019607844, 0.019607844, 1, 0.101960786, 0.10980392, 0.17254902, 1)
@@ -86,8 +86,12 @@ layout_mode = 2
 text = "ÇIKIŞ
 "
 
-[node name="CharacterDetailPopup" parent="." instance=ExtResource("2_cekv2")]
-layout_mode = 1
+[node name="CurrencyDisplay" parent="." instance=ExtResource("5_trgxq")]
+layout_mode = 0
+offset_left = 507.0
+offset_top = 31.0
+offset_right = 685.0
+offset_bottom = 159.0
 
 [connection signal="pressed" from="VBoxContainer/SummonButton" to="." method="_on_summon_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/BtnCollection" to="." method="_on_collection_button_pressed"]

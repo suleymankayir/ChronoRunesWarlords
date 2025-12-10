@@ -17,9 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-GM="*res://00_Game/Managers/GameManager.gd"
 Audio="*res://00_Game/Managers/AudioManager.tscn"
-SaveM="*res://00_Game/Managers/SaveManager.gd"
 GameEconomy="*res://00_Game/Managers/GameEconomy.gd"
 
 [display]

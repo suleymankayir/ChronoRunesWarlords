@@ -12,7 +12,7 @@ extends Node2D
 
 
 var current_level: int = 1
-var gold_earned_this_session: int = 10000
+var gold_earned_this_session: int = 0
 var player_max_hp: int = 500
 var player_current_hp: int = 500
 var is_player_turn: bool = true
@@ -25,19 +25,32 @@ func _ready() -> void:
 	if Audio.bg_music:
 		Audio.play_music(Audio.bg_music)
 		
-	player_max_hp = SaveM.get_player_max_hp()
+	# DYNAMIC STATS (SCALING)
+	# Formula: Base 500 + (Total Team Level * 50)
+	var team_level = GameEconomy.get_team_total_level()
+	# [DEBUG] Print to verify scaling
+	print(">>> SCALING DEBUG: Team Total Level = ", team_level)
+	
+	player_max_hp = 500 + (team_level * 50)
 	player_current_hp = player_max_hp
+	print("Player Max HP Scaled to: ", player_max_hp)
+	
 	update_mana_ui()
 	update_player_ui()
-	# GM (GameManager) sinyalini dinle
-	GM.state_changed.connect(_on_game_state_changed)
+	
+	# Connect Signals
 	board_manager.damage_dealt.connect(_on_player_damage_dealt)
 	board_manager.turn_finished.connect(_on_board_settled) 
 	board_manager.mana_gained.connect(_on_mana_gained)
-	enemy.attack_finished.connect(_on_enemy_attack_finished)
-	enemy.died.connect(_on_enemy_died)
+	
+	if enemy:
+		enemy.attack_finished.connect(_on_enemy_attack_finished)
+		enemy.died.connect(_on_enemy_died)
+		
 	skill_button.pressed.connect(_on_skill_activated)
 	
+	# Debug UI connection
+	GameEconomy.gold_updated.connect(func(new_gold): print("UI GOLD UPDATE: ", new_gold))
 
 # 1. Oyuncu hamlesini yaptı, taşlar patladı, her şey duruldu.
 func _on_board_settled() -> void:
@@ -52,7 +65,6 @@ func _on_board_settled() -> void:
 	if is_instance_valid(enemy):
 		enemy.attack_player()
 	else:
-		# Düşman yoksa hemen sırayı geri al (Win condition sonra eklenecek)
 		start_player_turn()
 		
 func _on_enemy_attack_finished() -> void:
@@ -94,21 +106,22 @@ func game_over(is_victory: bool) -> void:
 	else:
 		Audio.play_sfx("gameover")
 	
+	# HIGH SCORE CHECK (GAME ECONOMY)
+	GameEconomy.check_new_high_score(current_score)
+	
 	var popup = game_over_scene.instantiate()
-	# UI Katmanına ekle (Eğer CanvasLayer'ın adı BackgroundLayer ise UI için yeni bir CanvasLayer açsan iyi olur ama şimdilik direkt ekle)
 	ui_layer.add_child(popup)
 	
 	if popup is Control:
 		popup.set_anchors_preset(Control.PRESET_FULL_RECT)
-		
-		# Sol-Üst köşeye yapışmasını engellemek için offsetleri sıfırla
 		popup.offset_left = 0
 		popup.offset_top = 0
 		popup.offset_right = 0
 		popup.offset_bottom = 0
 	
 	# Popup'ı başlat
-	popup.show_result(is_victory, current_score)
+	if popup.has_method("show_result"):
+		popup.show_result(is_victory, current_score)
 	
 	if popup.has_signal("restart_requested"):
 		popup.restart_requested.connect(reload_game)
@@ -118,27 +131,20 @@ func reload_game() -> void:
 	get_tree().reload_current_scene()
 		
 func update_player_ui() -> void:
-	player_hp_bar.value = (float(player_current_hp) / player_max_hp) * 100
+	if player_max_hp > 0:
+		player_hp_bar.value = (float(player_current_hp) / player_max_hp) * 100
 	player_hp_text.text = str(player_current_hp) + " / " + str(player_max_hp)
 
-func _on_game_state_changed(new_state: GM.GameState) -> void:
-	var bg_rect = $Background
-	
-	# Duruma göre arkaplan rengini değiştir (Görsel Debugging)
-	match new_state:
-		GM.GameState.MAIN_MENU:
-			# Koyu Mavi (Menü Hissi)
-			bg_rect.color = Color("#1a1c2c") 
-		GM.GameState.COMBAT:
-			# Kan Kırmızısı (Savaş Hissi)
-			bg_rect.color = Color("#3e1616")
-			
 func _on_player_damage_dealt(amount: int, type: String) -> void:
 	if is_level_transitioning: return
 	if not is_instance_valid(enemy):
 		return
 	
-	var multiplier = SaveM.get_player_damage_multiplier()
+	# DYNAMIC DAMAGE SCALING (GAME ECONOMY)
+	# Formula: 1.0 + (Total Team Level * 0.1)
+	var team_level = GameEconomy.get_team_total_level()
+	var multiplier = 1.0 + (team_level * 0.1) 
+	
 	var final_damage = int(amount * multiplier)
 		
 	enemy.take_damage(final_damage, type)
@@ -183,8 +189,6 @@ func _on_skill_activated() -> void:
 			tween.tween_property(camera, "offset", Vector2(randf_range(-10,10), randf_range(-10,10)), 0.02)
 		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
 
-
-
 func update_mana_ui() -> void:
 	mana_bar.value = current_mana
 	
@@ -214,19 +218,17 @@ func _on_enemy_died() -> void:
 	print("Düşman Öldü! Seviye Atlanıyor...")
 	Audio.play_sfx("victory") # Zafer sesi (kısa)
 	
-	# 1. ÖDÜL: Altın Kazan (Kayıt sistemine işleyelim)
+	# 1. ÖDÜL: Altın Kazan (GAME ECONOMY)
 	var gold_reward = 100 * current_level
 	gold_earned_this_session += gold_reward
-	SaveM.game_data["total_gold"] += gold_reward
-	SaveM.save_data() # Hemen kaydet
+	
+	GameEconomy.add_gold(gold_reward) # Direct GameEconomy call
+	print(">>> Gold Reward Added: ", gold_reward)
 	
 	# 2. ÖDÜL: Oyuncuyu biraz iyileştir (%20)
 	var heal_amount = int(player_max_hp * 0.2)
 	player_current_hp = min(player_current_hp + heal_amount, player_max_hp)
 	update_player_ui()
-	
-	# Ekranda "LEVEL UP" veya "+100 GOLD" yazısı uçurabiliriz (FloatingText ile)
-	# Şimdilik konsola yazalım.
 	
 	# 3. ZORLUK ARTIRMA
 	current_level += 1
@@ -242,16 +244,10 @@ func spawn_next_enemy() -> void:
 	if is_instance_valid(enemy):
 		enemy.queue_free()
 	
-	# Düşman sahnesini yeniden yükle (PackedScene kullanacağız)
-	# DİKKAT: En tepeye "@export var enemy_scene: PackedScene" eklemelisin!
-	# Şimdilik pratik çözüm: Mevcut enemy düğümünü kopyalamak yerine
-	# Enemy.tscn dosyasını kodla yüklüyoruz.
-	
+	# Düşman sahnesini yeniden yükle
 	var new_enemy = load("res://00_Game/Scenes/Enemy.tscn").instantiate()
-	# UI Katmanının altına değil, normal sahneye ekle
-	# BoardManager'ın üstünde durması için add_child ile ekleyip pozisyon verelim
 	add_child(new_enemy)
-	new_enemy.position = Vector2(360, 250) # Eski düşmanın konumu (Bunu kendine göre ayarla)
+	new_enemy.position = Vector2(360, 250)
 	
 	# --- STATLARI GÜÇLENDİR (SCALING) ---
 	# Matematik: Her level %20 daha zor
@@ -262,11 +258,10 @@ func spawn_next_enemy() -> void:
 	new_enemy.update_ui()
 	
 	# Düşmanın rengini değiştir (Görsel Çeşitlilik)
-	# Level 1: Kırmızı, Level 2: Mor, Level 3: Siyah... rastgele değil, level'a göre.
-	var hue_shift = (current_level * 0.1) # Rengi kaydır
+	var hue_shift = (current_level * 0.1) 
 	new_enemy.modulate = Color.from_hsv(hue_shift, 1.0, 1.0)
 	
-	# BAĞLANTILARI TEKRAR YAP (Çünkü yeni düşman yarattık)
+	# BAĞLANTILARI TEKRAR YAP
 	enemy = new_enemy # Global değişkeni güncelle
 	enemy.attack_finished.connect(_on_enemy_attack_finished)
 	enemy.died.connect(_on_enemy_died)
