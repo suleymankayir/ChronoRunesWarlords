@@ -6,9 +6,9 @@
 [resource]
 script = ExtResource("2_m6y0l")
 id = "hero_water"
-name = "Elice"
-title = "Water Mage"
-full_body_art = ExtResource("1_dowjo")
-element = 1
-base_damage = 225
+character_name = "Elise"
+portrait = ExtResource("1_dowjo")
+rarity_color = Color(0.6781395, 0.6131937, 0.6038131, 1)
+element_text = "Water"
+rarity = 2
 metadata/_custom_type_script = "uid://chd0do1hdflc"

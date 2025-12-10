@@ -1,9 +1,28 @@
-[gd_scene load_steps=3 format=3 uid="uid://b0eslqmomf7lw"]
+[gd_scene load_steps=6 format=3 uid="uid://b0eslqmomf7lw"]
 
 [ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_cjgfr"]
 [ext_resource type="Script" uid="uid://bov0jmnlth7ru" path="res://00_Game/Scripts/HeroSlot.gd" id="2_p3dv7"]
 
-[node name="HeroSlot" type="TextureButton"]
+[sub_resource type="LabelSettings" id="LabelSettings_p3dv7"]
+outline_size = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_p3dv7"]
+content_margin_left = 5.0
+content_margin_top = 2.0
+content_margin_right = 5.0
+content_margin_bottom = 2.0
+bg_color = Color(0.15667456, 0.1566746, 0.15667447, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="LabelSettings" id="LabelSettings_arm58"]
+font_size = 18
+font_color = Color(0.13589153, 0.49906713, 0.43308285, 1)
+shadow_size = 2
+
+[node name="HeroSlot" type="TextureButton" node_paths=PackedStringArray("rarity_border", "level_label", "team_indicator")]
 custom_minimum_size = Vector2(150, 150)
 offset_right = 40.0
 offset_bottom = 40.0
@@ -11,3 +30,42 @@ texture_normal = ExtResource("1_cjgfr")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("2_p3dv7")
+rarity_border = NodePath("RarityBorder")
+level_label = NodePath("LevelLabel")
+team_indicator = NodePath("TeamIndicator")
+
+[node name="RarityBorder" type="ReferenceRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+border_color = Color(1, 1, 1, 1)
+border_width = 4.0
+editor_only = false
+
+[node name="LevelLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -23.0
+grow_horizontal = 0
+grow_vertical = 0
+text = "Lv. 1"
+label_settings = SubResource("LabelSettings_p3dv7")
+horizontal_alignment = 2
+
+[node name="TeamIndicator" type="Label" parent="."]
+visible = false
+layout_mode = 1
+offset_right = 72.0
+offset_bottom = 23.0
+theme_override_styles/normal = SubResource("StyleBoxFlat_p3dv7")
+text = "TAKIMDA"
+label_settings = SubResource("LabelSettings_arm58")

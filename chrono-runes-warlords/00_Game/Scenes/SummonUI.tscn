@@ -31,9 +31,9 @@ btn_claim = NodePath("ResultCard/BtnClaim")
 result_card = NodePath("ResultCard")
 hero_label = NodePath("ResultCard/heroLabel")
 hero_image = NodePath("ResultCard/HeroArt")
+shop_popup_scene = ExtResource("8_3tpxy")
 sfx_summon_success = ExtResource("2_px0dg")
 possible_rewards = Array[Resource]([ExtResource("2_prr32"), ExtResource("3_px0dg"), ExtResource("4_3tpxy"), ExtResource("5_1ahmi"), ExtResource("6_wyq21")])
-shop_popup_scene = ExtResource("8_3tpxy")
 
 [node name="Background" type="TextureRect" parent="."]
 modulate = Color(0.0035191667, 0.0035191681, 0.0035191672, 1)

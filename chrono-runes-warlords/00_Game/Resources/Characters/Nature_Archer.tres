@@ -6,10 +6,6 @@
 [resource]
 script = ExtResource("2_enkhu")
 id = "hero_earth"
-name = "Alice"
-title = "Earth Archer"
-full_body_art = ExtResource("1_1gq0h")
-element = 2
-base_hp = 1050
-base_damage = 200
+character_name = "Alice"
+portrait = ExtResource("1_1gq0h")
 metadata/_custom_type_script = "uid://chd0do1hdflc"

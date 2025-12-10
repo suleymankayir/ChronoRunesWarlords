@@ -1,12 +1,16 @@
-[gd_scene load_steps=6 format=3 uid="uid://cmd50b3yqkodr"]
+[gd_scene load_steps=10 format=3 uid="uid://cmd50b3yqkodr"]
 
 [ext_resource type="Script" uid="uid://d3hu0oxvok14u" path="res://00_Game/Scripts/CollectionUI.gd" id="1_cr5am"]
-[ext_resource type="PackedScene" uid="uid://du3668e3d13to" path="res://00_Game/Scenes/InventorySlot.tscn" id="2_attbi"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="2_qyltj"]
+[ext_resource type="Resource" uid="uid://c62f360tbed0e" path="res://00_Game/Resources/Characters/Dark_Necromancer.tres" id="3_6p7hg"]
 [ext_resource type="PackedScene" uid="uid://cgifbjnovga4e" path="res://00_Game/Scenes/CharacterDetailPopup.tscn" id="3_ub6kk"]
 [ext_resource type="PackedScene" uid="uid://b0eslqmomf7lw" path="res://00_Game/Scenes/HeroSlot.tscn" id="4_qa5h6"]
 [ext_resource type="Resource" uid="uid://bb5sh3d2c6k6c" path="res://00_Game/Resources/Characters/Fire_Warrior.tres" id="5_0xqoh"]
+[ext_resource type="Resource" uid="uid://bb83ytp50nmqk" path="res://00_Game/Resources/Characters/Light_Knight.tres" id="5_wf1r2"]
+[ext_resource type="Resource" uid="uid://dehw3kv7gpmti" path="res://00_Game/Resources/Characters/Nature_Archer.tres" id="6_it314"]
+[ext_resource type="Resource" uid="uid://c35l4jdd1fro" path="res://00_Game/Resources/Characters/Water_Mage.tres" id="7_esp65"]
 
-[node name="CollectionUI" type="Control" node_paths=PackedStringArray("grid_container", "btn_back", "character_popup")]
+[node name="CollectionUI" type="Control" node_paths=PackedStringArray("character_popup", "grid_container", "btn_back")]
 z_index = 100
 layout_mode = 3
 anchors_preset = 15
@@ -15,11 +19,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_cr5am")
-slot_template = ExtResource("2_attbi")
-popup_scene = ExtResource("3_ub6kk")
+hero_slot_scene = ExtResource("4_qa5h6")
+character_popup = NodePath("CharacterDetailPopup")
 grid_container = NodePath("MarginContainer/ScrollContainer/Grid")
 btn_back = NodePath("BtnBack")
-character_popup = NodePath("CharacterDetailPopup")
+all_possible_heroes = Array[ExtResource("2_qyltj")]([ExtResource("3_6p7hg"), ExtResource("5_0xqoh"), ExtResource("5_wf1r2"), ExtResource("6_it314"), ExtResource("7_esp65")])
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
@@ -56,7 +60,6 @@ columns = 3
 [node name="HeroSlot" parent="MarginContainer/ScrollContainer/Grid" instance=ExtResource("4_qa5h6")]
 visible = false
 layout_mode = 2
-slot_data = ExtResource("5_0xqoh")
 
 [node name="HeroSlot2" parent="MarginContainer/ScrollContainer/Grid" instance=ExtResource("4_qa5h6")]
 visible = false

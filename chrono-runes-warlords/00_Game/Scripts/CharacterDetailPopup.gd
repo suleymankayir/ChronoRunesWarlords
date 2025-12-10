@@ -1,4 +1,3 @@
-# SCRIPT 2: CharacterDetailPopup.gd
 class_name CharacterDetailPopup extends Control
 
 # --- SIGNALS ---
@@ -22,6 +21,8 @@ const DIM_ALPHA_END: float = 1.0
 @export var hero_element: Label
 @export var hero_description: Label
 @export var upgrade_button: Button
+@export var gold_shop_popup: GoldShopPopup
+@export var equip_button: Button # NEW
 
 # --- PRIVATE VARIABLES ---
 var _current_data: CharacterData
@@ -38,18 +39,51 @@ func _ready() -> void:
 		
 	if upgrade_button:
 		upgrade_button.pressed.connect(_on_upgrade_pressed)
+		
+	if gold_shop_popup:
+		gold_shop_popup.purchase_successful.connect(_on_gold_purchased)
+		
+	if equip_button:
+		equip_button.pressed.connect(_on_equip_pressed)
 
 # --- PUBLIC API ---
 
 func open(data: CharacterData) -> void:
-	print(">>> 3. OPEN FONKSİYONU ÇALIŞTI! Gelen İsim: ", data.character_name) # BU SATIRI EKLE
-	_current_data = data
+	print(">>> OPEN CALL: ", data.character_name) 
 	
+	# 1. State Reset (Crucial)
+	show()
+	modulate.a = 1.0
+	scale = Vector2.ONE
+	
+	if content_panel:
+		content_panel.visible = true
+		content_panel.modulate.a = 1.0
+		content_panel.scale = Vector2.ONE
+
+	# 2. Data Handling
+	_current_data = data
 	_populate_ui(data)
-	_animate_open()
+	
+	# 3. Team Button Logic
+	if has_method("_update_equip_button_state") and data:
+		var is_in_team = GameEconomy.is_hero_selected(data.id)
+		_update_equip_button_state(is_in_team)
+	
+	# 4. Animation (Simple Entry)
+	if content_panel:
+		content_panel.scale = Vector2(0.9, 0.9)
+		var tween = create_tween()
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.tween_property(content_panel, "scale", Vector2.ONE, 0.2)
+
+func _on_close_pressed() -> void:
+	hide()
+	popup_closed.emit()
 
 func close() -> void:
-	_animate_close()
+	_on_close_pressed()
+
 
 # --- PRIVATE HELPERS ---
 
@@ -74,6 +108,17 @@ func _populate_ui(data: CharacterData) -> void:
 		
 	if hero_element:
 		hero_element.text = data.element_text
+
+func _update_equip_button_state(in_team: bool) -> void:
+	if not equip_button:
+		return
+		
+	if in_team:
+		equip_button.text = "TAKIMDAN ÇIKAR"
+		equip_button.modulate = Color(1, 0.3, 0.3) # Red tint
+	else:
+		equip_button.text = "TAKIMA AL"
+		equip_button.modulate = Color(0.3, 1, 0.3) # Green tint
 
 func _animate_open() -> void:
 	visible = true
@@ -112,8 +157,61 @@ func _on_background_input(event: InputEvent) -> void:
 			close()
 
 func _on_upgrade_pressed() -> void:
+	if not _current_data:
+		return
+
+	var cost = _current_data.level * 100
+	
+	if GameEconomy.has_enough_gold(cost):
+		if GameEconomy.spend_gold(cost):
+			# Success
+			_current_data.level += 1
+			_populate_ui(_current_data) # Update UI text
+			
+			# Visual Feedback: Punch effect on hero image
+			if hero_image:
+				var tween = create_tween()
+				tween.tween_property(hero_image, "scale", Vector2(1.2, 1.2), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				tween.tween_property(hero_image, "scale", Vector2.ONE, 0.1)
+				
+			upgrade_requested.emit(_current_data.id) # Keep existing signal if needed by other systems
+			print("Upgrade successful! New Level: ", _current_data.level)
+	else:
+		# Failure
+		var missing_gold = cost - GameEconomy.gold
+		print("Not enough gold! Cost: ", cost, " Current: ", GameEconomy.gold, " Missing: ", missing_gold)
+		
+		if gold_shop_popup:
+			gold_shop_popup.open(missing_gold)
+		elif upgrade_button:
+			_shake_button(upgrade_button)
+
+func _on_equip_pressed() -> void:
+	if not _current_data:
+		return
+		
+	# Toggle Selection
+	GameEconomy.toggle_hero_selection(_current_data.id)
+	
+	# Update Visuals based on new state
+	var is_now_in_team = GameEconomy.is_hero_selected(_current_data.id)
+	_update_equip_button_state(is_now_in_team)
+
+func _on_gold_purchased() -> void:
 	if _current_data:
-		upgrade_requested.emit(_current_data.id)
+		_populate_ui(_current_data)
+
+func _shake_button(button: Button) -> void:
+	var tween = create_tween()
+	var original_pos = button.position
+	var shake_offset = 10.0
+	
+	# Simple shake: right, left, right, left, return
+	tween.tween_property(button, "position:x", original_pos.x + shake_offset, 0.05)
+	tween.tween_property(button, "position:x", original_pos.x - shake_offset, 0.05)
+	tween.tween_property(button, "position:x", original_pos.x + shake_offset * 0.5, 0.05)
+	tween.tween_property(button, "position:x", original_pos.x - shake_offset * 0.5, 0.05)
+	tween.tween_property(button, "position:x", original_pos.x, 0.05)
 
 # --- TEST FUNCTION (User Requested) ---
 func _on_test_button_pressed() -> void:

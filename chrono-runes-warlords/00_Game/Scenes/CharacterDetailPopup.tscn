@@ -1,8 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://cgifbjnovga4e"]
+[gd_scene load_steps=3 format=3 uid="uid://cgifbjnovga4e"]
 
 [ext_resource type="Script" uid="uid://bc8puj46n4xaq" path="res://00_Game/Scripts/CharacterDetailPopup.gd" id="1_ywjtv"]
+[ext_resource type="PackedScene" uid="uid://y8ikp7i7k1rw" path="res://00_Game/Scenes/GoldShopPopup.tscn" id="2_mejeg"]
 
-[node name="CharacterDetailPopup" type="Control" node_paths=PackedStringArray("background_dim", "content_panel", "hero_image", "hero_name", "hero_rarity", "hero_element", "hero_description", "upgrade_button")]
+[node name="CharacterDetailPopup" type="Control" node_paths=PackedStringArray("background_dim", "content_panel", "hero_image", "hero_name", "hero_rarity", "hero_element", "hero_description", "upgrade_button", "gold_shop_popup", "equip_button")]
 z_index = 100
 z_as_relative = false
 layout_mode = 3
@@ -20,6 +21,8 @@ hero_rarity = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroRarity")
 hero_element = NodePath("PopupPanel/VBoxContainer/InfoRow/HeroElement")
 hero_description = NodePath("PopupPanel/VBoxContainer/HeroDescription")
 upgrade_button = NodePath("PopupPanel/VBoxContainer/UpgradeButton")
+gold_shop_popup = NodePath("GoldShopPopup")
+equip_button = NodePath("PopupPanel/VBoxContainer/EquipButton")
 
 [node name="BackgroundDim" type="ColorRect" parent="."]
 z_index = -1
@@ -77,3 +80,14 @@ autowrap_mode = 2
 
 [node name="UpgradeButton" type="Button" parent="PopupPanel/VBoxContainer"]
 layout_mode = 2
+text = "UPGRADE (100 G)"
+
+[node name="EquipButton" type="Button" parent="PopupPanel/VBoxContainer"]
+layout_mode = 2
+text = "TAKIMA AL"
+
+[node name="GoldShopPopup" parent="." instance=ExtResource("2_mejeg")]
+z_index = 200
+layout_mode = 1
+
+[connection signal="pressed" from="PopupPanel/VBoxContainer/EquipButton" to="." method="_on_equip_pressed"]

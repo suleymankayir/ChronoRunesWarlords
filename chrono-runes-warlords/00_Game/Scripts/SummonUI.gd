@@ -8,6 +8,7 @@ class_name SummonUI extends Control
 @export var result_card: Control
 @export var hero_label: Label      
 @export var hero_image: TextureRect 
+@export var shop_popup_scene: PackedScene # [NEW] Mağaza Sahnesi
 
 # --- SES ---
 @export_group("Audio")
@@ -18,9 +19,7 @@ class_name SummonUI extends Control
 @export var possible_rewards: Array[Resource]
 
 # --- AYARLAR ---
-# player_gold ARTIK YOK! GM kullanacağız.
 var summon_cost: int = 100
-@export var shop_popup_scene: PackedScene # [NEW] Mağaza Sahnesi
 
 func _ready() -> void:
 	# Başlangıç ayarları
@@ -37,10 +36,8 @@ func _on_summon_pressed() -> void:
 		push_error("⚠️ HATA: Inspector'da 'Possible Rewards' listesi boş!")
 		return
 
-	# 2. EKONOMİ KONTROLÜ (GM üzerinden)
-	# GM.remove_gold fonksiyonu; para yetiyorsa düşer ve True döner.
-	# Yetmiyorsa False döner.
-	if GM.remove_gold(summon_cost):
+	# 2. EKONOMİ KONTROLÜ
+	if GameEconomy.spend_gold(summon_cost):
 		
 		# Ses Çal (Audio Manager ismin 'Audio' ise öyle kalsın)
 		if sfx_summon_success:
@@ -50,14 +47,17 @@ func _on_summon_pressed() -> void:
 		
 	else:
 		# PARA YETMEDİ
-		print("❌ Yetersiz Bakiye! Cüzdan: ", GM.total_gold)
+		print("❌ Yetersiz Bakiye! Cüzdan: ", GameEconomy.gold)
 		
+		# [CHANGED] Use GoldShopPopup if assigned
 		if shop_popup_scene:
 			print("🛒 Mağaza açılıyor...")
 			var shop = shop_popup_scene.instantiate()
 			add_child(shop)
 			if shop.has_method("open"):
-				shop.open()
+				# Calculate missing gold
+				var missing = summon_cost - GameEconomy.gold
+				shop.open(missing)
 		else:
 			print("UYARI: Shop Popup Scene atanmamış!")
 
@@ -71,17 +71,17 @@ func _show_result_card() -> void:
 		var data = possible_rewards.pick_random() as CharacterData
 		
 		# 2. GLOBAL ENVANTERE EKLE (Kritik Nokta)
-		GM.add_character(data)
+		GameEconomy.add_hero(data)
 		
 		# 3. UI Güncelle
 		if hero_label:
-			hero_label.text = data.name 
+			hero_label.text = data.character_name 
 			hero_label.add_theme_color_override("font_color", _get_color_by_rarity(data.rarity))
 		
 		if hero_image:
-			hero_image.texture = data.full_body_art
+			hero_image.texture = data.portrait
 
-		print("🎲 Kazanılan: ", data.name)
+		print("🎲 Kazanılan: ", data.character_name)
 
 func _on_claim_pressed() -> void:
 	# Kartı kapat
@@ -93,7 +93,6 @@ func _on_claim_pressed() -> void:
 
 func _on_back_pressed() -> void:
 	print("🔙 Ana Menüye dönülüyor...")
-	# Buraya kendi MainMenu dosya yolunu yazdığından emin ol!
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
 # Rengi belirleyen yardımcı fonksiyon

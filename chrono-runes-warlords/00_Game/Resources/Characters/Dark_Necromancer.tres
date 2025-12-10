@@ -6,10 +6,8 @@
 [resource]
 script = ExtResource("1_ycip3")
 id = "hero_dark"
-name = "Morgana"
-title = "Dark Necromancer"
-full_body_art = ExtResource("1_ywwrw")
-element = 4
-base_hp = 1100
-base_damage = 200
+character_name = "Morgana"
+portrait = ExtResource("1_ywwrw")
+rarity_color = Color(0.13863751, 0.13863748, 0.13863748, 1)
+element_text = "Dark"
 metadata/_custom_type_script = "uid://chd0do1hdflc"

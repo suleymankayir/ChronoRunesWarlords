@@ -6,10 +6,9 @@
 [resource]
 script = ExtResource("2_eqni4")
 id = "hero_light"
-name = "Teresa"
-title = "Light Knight"
-full_body_art = ExtResource("1_vyt0p")
-element = 3
-base_hp = 1400
-base_damage = 125
+character_name = "Teresa"
+portrait = ExtResource("1_vyt0p")
+rarity_color = Color(0.5114235, 0.1719087, 0.88940346, 1)
+element_text = "Light"
+rarity = 1
 metadata/_custom_type_script = "uid://chd0do1hdflc"

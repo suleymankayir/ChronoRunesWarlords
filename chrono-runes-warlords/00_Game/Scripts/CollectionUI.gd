@@ -1,96 +1,104 @@
 class_name CollectionUI extends Control
 
-# --- AYARLAR ---
-# Az önce yaptığımız 'Kutu' sahnesini buraya sürükleyeceğiz
-@export var slot_template: PackedScene 
-@export var popup_template: PackedScene # [NEW] Popup sahnesini buraya ata
-@export var popup_scene: PackedScene
-# --- REFERANSLAR ---
+# --- CONFIGURATION ---
+@export var hero_slot_scene: PackedScene 
+@export var character_popup: CharacterDetailPopup # Using the existing popup reference style
 @export var grid_container: GridContainer
 @export var btn_back: Button
-@export var character_popup: CharacterDetailPopup
+@export var all_possible_heroes: Array[CharacterData] = []
 
 func _ready() -> void:
-	# Geri butonunu bağla
 	if btn_back:
 		btn_back.pressed.connect(_on_back_pressed)
 	
-	# Ekrana karakterleri diz
-	_populate_grid()
-
-func _populate_grid() -> void:
+	# Connect to economy updates
+	GameEconomy.inventory_updated.connect(refresh_grid)
+	GameEconomy.team_updated.connect(_on_team_updated) # NEW
 	
-	print("🔍 Koleksiyon Ekranı Yükleniyor...")
-	print("📊 GM Karakter Sayısı: ", GM.owned_characters.size())
-	# 1. Önce eski kutuları temizle (Temiz sayfa)
-	# Grid'in altındaki tüm çocukları siliyoruz
+	# Initial Render
+	refresh_grid()
+
+func refresh_grid() -> void:
+	print(">>> KOLEKSİYON YENİLENİYOR...")
+	
+	if not grid_container:
+		print("ERROR: Grid Container is missing!")
+		return
+
+	# Print 2
+	print(">>> BANKADAKİ KAHRAMAN SAYISI: ", GameEconomy.owned_heroes.size())
+	print(">>> SAHİP OLUNAN ID'LER: ", GameEconomy.owned_heroes.keys())
+	
+	# Print 3
+	print(">>> VİTRİNDEKİ TOPLAM SLOT ADAYI: ", all_possible_heroes.size())
+	
+	# 1. Clear existing slots
 	for child in grid_container.get_children():
 		child.queue_free()
 	
-	# 2. GameManager'dan listeyi çek
-	var my_characters = GM.owned_characters
-	
-	if my_characters.is_empty():
-		print("🎒 Envanter boş.")
-		return
-
-	# 3. Her karakter için bir kutu yarat
-	for character_data in my_characters:
-		# Kutuyu oluştur (Instantiate)
-		var new_slot = slot_template.instantiate()
-		
-		if not new_slot.has_method("set_slot_data"):
-			push_error("HATA: Oluşturulan slotta 'set_slot_data' fonksiyonu yok! Script bağlı mı?")
-			return
+	# 2. Iterate through all possible heroes
+	for hero_data in all_possible_heroes:
+		if not hero_data:
+			continue
 			
-		new_slot.set_slot_data(character_data)
-		new_slot.clicked.connect(_on_slot_clicked)
+		# Print 4 - Loop Logic
+		print("--- Kontrol ediliyor: ", hero_data.id, " | Sahip miyiz?: ", GameEconomy.owned_heroes.has(hero_data.id))
 		
-					
-		grid_container.add_child(new_slot)
-		
-		
-func _on_slot_clicked(data: CharacterData) -> void:
-	if not popup_scene:
-		push_error("⚠️ HATA: Popup Scene atanmamış!")
+		# Check if owned
+		if hero_data.id in GameEconomy.owned_heroes:
+			_create_slot(hero_data)
+		else:
+			# Optional: Handle locked state logic here if needed in future
+			pass
+
+func _create_slot(data: CharacterData) -> void:
+	if not hero_slot_scene:
+		push_error("Error: Hero Slot Scene not assigned in CollectionUI")
 		return
-	var popup = popup_scene.instantiate() as CharacterDetailPopup
-	add_child(popup)
-	popup.open(data)
 
-func _on_back_pressed() -> void:
-	# Ana menüye dön
-	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
+	var new_slot = hero_slot_scene.instantiate()
+	
+	# Update data with current level
+	data.level = GameEconomy.get_hero_level(data.id)
+	
+	# Assign data directly (as per HeroSlot.gd definition)
+	if "slot_data" in new_slot:
+		new_slot.slot_data = data
+	else:
+		push_error("Error: HeroSlot scene missing 'slot_data' property!")
+		
+	# Connect signal
+	if new_slot.has_signal("hero_selected"):
+		new_slot.hero_selected.connect(_on_hero_slot_hero_selected)
+	else:
+		push_error("Error: HeroSlot scene missing 'hero_selected' signal!")
+	
+	# Set initial team status (NEW)
+	if new_slot.has_method("set_team_status"):
+		var is_selected = GameEconomy.is_hero_selected(data.id)
+		new_slot.set_team_status(is_selected)
+	
+	grid_container.add_child(new_slot)
 
-# Yardımcı fonksiyon: Enum'ı yazıya çevirir
-func _get_rarity_name(rarity_enum) -> String:
-	# Senin Enum yapına göre düzenle
-	match rarity_enum:
-		0: return "Common"
-		1: return "Rare"
-		2: return "Epic"
-		3: return "Legendary"
-	return "Unknown"
-
-func _get_color_by_rarity(rarity_enum) -> Color:
-	match rarity_enum:
-		CharacterData.Rarity.COMMON:
-			return Color.GRAY
-		CharacterData.Rarity.RARE:
-			return Color.DODGER_BLUE
-		CharacterData.Rarity.EPIC:
-			return Color.PURPLE
-		CharacterData.Rarity.LEGENDARY:
-			return Color.GOLD
-	return Color.WHITE
-
+func _on_team_updated() -> void:
+	print(">>> Team Updated! Refreshing indicators...")
+	for child in grid_container.get_children():
+		if "slot_data" in child and child.slot_data:
+			var id = child.slot_data.id
+			var is_selected = GameEconomy.is_hero_selected(id)
+			if child.has_method("set_team_status"):
+				child.set_team_status(is_selected)
 
 func _on_hero_slot_hero_selected(data: CharacterData) -> void:
+	print(">>> Selected Hero: ", data.character_name)
 	
-	print(">>> SEÇİLEN KAHRAMAN: ", data.character_name)
+	# Ensure data is fresh
+	data.level = GameEconomy.get_hero_level(data.id)
 	
 	if character_popup:
-		# Veriyi popup'a paslıyoruz ve açıyoruz
 		character_popup.open(data)
 	else:
-		print("!!! HATA: CollectionUI sahnesine Popup'ı koymayı veya Inspector'dan atamayı unuttun!")
+		push_error("Error: Character Detail Popup not assigned!")
+
+func _on_back_pressed() -> void:
+	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
