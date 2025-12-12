@@ -65,13 +65,14 @@ func _ready() -> void:
 	# --- LEADER SKILL SETUP ---
 	var leader_id = GameEconomy.get_team_leader_id()
 	if leader_id != "":
-		var resource_path = "res://00_Game/Resources/Characters/" + leader_id + ".tres"
-		if ResourceLoader.exists(resource_path):
-			leader_data = load(resource_path)
+		# USE DATABASE (Robut & Reliable)
+		leader_data = GameEconomy.get_character_data(leader_id)
+		
+		if leader_data:
 			skill_button.text = leader_data.skill_name.to_upper()
 			print("Leader Skill Set: ", leader_data.skill_name)
 		else:
-			print("Leader Resource Not Found: ", resource_path)
+			print("Leader Resource Not Found in DB: ", leader_id)
 			skill_button.text = "SKILL"
 	else:
 		skill_button.text = "SKILL"
@@ -282,12 +283,53 @@ func _on_skill_activated() -> void:
 	current_mana = 0
 	update_mana_ui()
 	Audio.play_sfx("combo", 0.5)
-	if enemy.vfx_hit_scene:
-		var vfx = enemy.vfx_hit_scene.instantiate()
-		enemy.add_child(vfx)
-		vfx.scale = Vector2(3.0, 3.0)
-		vfx.setup(Vector2.ZERO, Color.CYAN)
-		enemy.take_damage(250, "magic")
+	
+	# Default params
+	var power = 250
+	var type = CharacterData.SkillType.DIRECT_DAMAGE
+	
+	if leader_data:
+		power = leader_data.skill_power
+		type = leader_data.skill_type
+		
+		# [DEBUG] VERBOSE SKILL LOGS
+		print("--- SKILL DEBUG START ---")
+		print("Leader: ", leader_data.character_name, " | ID: ", leader_data.id)
+		print("Raw Skill Power (from file): ", power)
+		var t_lvl = GameEconomy.get_team_total_level()
+		print("Team Total Level: ", t_lvl)
+		print("Calculation Used: %d * (1.0 + %d * 0.1)" % [power, t_lvl])
+		print("--- SKILL DEBUG END ---")
+	
+	var team_level = GameEconomy.get_team_total_level()
+	var final_power = int(power * (1.0 + (team_level * 0.1)))
+	
+	match type:
+		CharacterData.SkillType.DIRECT_DAMAGE:
+			if enemy.vfx_hit_scene:
+				var vfx = enemy.vfx_hit_scene.instantiate()
+				enemy.add_child(vfx)
+				vfx.scale = Vector2(3.0, 3.0)
+				vfx.setup(Vector2.ZERO, Color.RED)
+			enemy.take_damage(final_power, "magic")
+			spawn_status_text("SKILL!", Color.RED, enemy.global_position)
+			
+		CharacterData.SkillType.HEAL:
+			player_current_hp = min(player_current_hp + final_power, player_max_hp)
+			update_player_ui()
+			spawn_status_text("HEAL +%d" % final_power, Color.GREEN, ui_layer.offset + Vector2(200, 400))
+			# Visual Effect for Heal (Screen Flash Green maybe?)
+			var color_rect = ColorRect.new()
+			ui_layer.add_child(color_rect)
+			color_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+			color_rect.color = Color(0, 1, 0, 0.3)
+			var tween = create_tween()
+			tween.tween_property(color_rect, "modulate:a", 0.0, 0.5)
+			tween.tween_callback(color_rect.queue_free)
+			
+		CharacterData.SkillType.BUFF_ATTACK:
+			is_damage_buff_active = true
+			spawn_status_text("DAMAGE BUFF!", Color.YELLOW, ui_layer.offset + Vector2(200, 400))
 	var camera = $Camera2D
 	if camera:
 		var tween = create_tween()
@@ -350,7 +392,6 @@ func spawn_next_enemy() -> void:
 	if is_instance_valid(enemy):
 		enemy.queue_free()
 	
-	# Düşman sahnesini yeniden yükle
 	# Düşman sahnesini yeniden yükle
 	var new_enemy = load("res://00_Game/Scenes/Enemy.tscn").instantiate()
 	add_child(new_enemy)

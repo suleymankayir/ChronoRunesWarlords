@@ -77,17 +77,31 @@ func _create_slot(data: CharacterData) -> void:
 	if new_slot.has_method("set_team_status"):
 		var is_selected = GameEconomy.is_hero_selected(data.id)
 		new_slot.set_team_status(is_selected)
+
+	# Set initial leader status
+	if new_slot.has_method("set_leader_status"):
+		var leader_id = GameEconomy.get_team_leader_id()
+		var is_leader = (data.id == leader_id)
+		new_slot.set_leader_status(is_leader)
 	
 	grid_container.add_child(new_slot)
 
 func _on_team_updated() -> void:
 	print(">>> Team Updated! Refreshing indicators...")
+	
+	var leader_id = GameEconomy.get_team_leader_id()
+	
 	for child in grid_container.get_children():
 		if "slot_data" in child and child.slot_data:
 			var id = child.slot_data.id
 			var is_selected = GameEconomy.is_hero_selected(id)
+			var is_leader = (id == leader_id)
+			
 			if child.has_method("set_team_status"):
 				child.set_team_status(is_selected)
+				
+			if child.has_method("set_leader_status"):
+				child.set_leader_status(is_leader)
 
 func _on_hero_slot_hero_selected(data: CharacterData) -> void:
 	print(">>> Selected Hero: ", data.character_name)

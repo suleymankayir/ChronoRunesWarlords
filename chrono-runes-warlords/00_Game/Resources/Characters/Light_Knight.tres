@@ -11,4 +11,6 @@ portrait = ExtResource("1_vyt0p")
 rarity_color = Color(0.5114235, 0.1719087, 0.88940346, 1)
 element_text = "Light"
 rarity = 1
+skill_type = 2
+skill_name = "Holy Attack"
 metadata/_custom_type_script = "uid://chd0do1hdflc"

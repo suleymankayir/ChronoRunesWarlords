@@ -11,7 +11,7 @@ content_margin_left = 5.0
 content_margin_top = 2.0
 content_margin_right = 5.0
 content_margin_bottom = 2.0
-bg_color = Color(0.15667456, 0.1566746, 0.15667447, 1)
+bg_color = Color(0.7766737, 0.7784576, 0.1221334, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
@@ -22,7 +22,7 @@ font_size = 18
 font_color = Color(0.13589153, 0.49906713, 0.43308285, 1)
 shadow_size = 2
 
-[node name="HeroSlot" type="TextureButton" node_paths=PackedStringArray("rarity_border", "level_label", "team_indicator")]
+[node name="HeroSlot" type="TextureButton" node_paths=PackedStringArray("rarity_border", "level_label", "team_indicator", "leader_indicator")]
 custom_minimum_size = Vector2(150, 150)
 offset_right = 40.0
 offset_bottom = 40.0
@@ -33,6 +33,7 @@ script = ExtResource("2_p3dv7")
 rarity_border = NodePath("RarityBorder")
 level_label = NodePath("LevelLabel")
 team_indicator = NodePath("TeamIndicator")
+leader_indicator = NodePath("LeaderIndicator")
 
 [node name="RarityBorder" type="ReferenceRect" parent="."]
 layout_mode = 1
@@ -68,4 +69,17 @@ offset_right = 72.0
 offset_bottom = 23.0
 theme_override_styles/normal = SubResource("StyleBoxFlat_p3dv7")
 text = "TAKIMDA"
+label_settings = SubResource("LabelSettings_arm58")
+
+[node name="LeaderIndicator" type="Label" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -30.0
+offset_right = 102.0
+grow_vertical = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_p3dv7")
+text = "LEADER 👑"
 label_settings = SubResource("LabelSettings_arm58")

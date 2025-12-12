@@ -18,9 +18,37 @@ var owned_heroes: Dictionary = {}
 var selected_team_ids: Array[String] = []
 var high_score: int = 0
 
+# DATABASE
+var character_db: Dictionary = {}
+
 func _ready() -> void:
-	# INITIALIZATION: Load data first!
+	# 1. Load Database of Characters
+	_load_character_database()
+	
+	# 2. Load User Save Data
 	load_game()
+
+func _load_character_database() -> void:
+	var path = "res://00_Game/Resources/Characters/"
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".tres"):
+				var res = load(path + file_name) as CharacterData
+				if res:
+					character_db[res.id] = res
+			file_name = dir.get_next()
+		print("GameEconomy: Loaded %d heroes into Database." % character_db.size())
+	else:
+		push_error("GameEconomy: Failed to open Characters directory!")
+
+func get_character_data(id: String) -> CharacterData:
+	if id in character_db:
+		return character_db[id]
+	push_error("GameEconomy: Character ID not found in DB: " + id)
+	return null
 
 # --- CURRENCY FUNCTIONS ---
 

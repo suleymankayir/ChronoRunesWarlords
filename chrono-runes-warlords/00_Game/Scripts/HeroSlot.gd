@@ -5,6 +5,7 @@ signal hero_selected(data: CharacterData)
 @export var rarity_border: ReferenceRect
 @export var level_label: Label
 @export var team_indicator: Control
+@export var leader_indicator: Control
 
 var slot_data: CharacterData : set = _set_slot_data
 
@@ -38,6 +39,10 @@ func _set_slot_data(value: CharacterData) -> void:
 func set_team_status(is_in_team: bool) -> void:
 	if team_indicator:
 		team_indicator.visible = is_in_team
+
+func set_leader_status(is_leader: bool) -> void:
+	if leader_indicator:
+		leader_indicator.visible = is_leader
 
 func _on_pressed() -> void:
 	if slot_data:
