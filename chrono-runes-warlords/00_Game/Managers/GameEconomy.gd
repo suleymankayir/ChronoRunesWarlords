@@ -103,6 +103,11 @@ func toggle_hero_selection(hero_id: String) -> void:
 func is_hero_selected(hero_id: String) -> bool:
 	return hero_id in selected_team_ids
 
+func get_team_leader_id() -> String:
+	if not selected_team_ids.is_empty():
+		return selected_team_ids[0]
+	return ""
+
 # --- GAMEPLAY & SCALING LOGIC ---
 
 func check_new_high_score(current_score: int) -> bool:

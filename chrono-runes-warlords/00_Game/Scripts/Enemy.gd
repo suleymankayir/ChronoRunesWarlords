@@ -14,6 +14,20 @@ func _ready() -> void:
 	current_hp = max_hp
 	update_ui()
 
+var element_type: String = "red"
+
+func setup_element(new_type: String) -> void:
+	element_type = new_type
+	
+	match element_type:
+		"red": visuals.modulate = Color("#ff4d4d")
+		"blue": visuals.modulate = Color("#4da6ff")
+		"green": visuals.modulate = Color("#5cd65c")
+		"yellow": visuals.modulate = Color("#ffd11a")
+		"purple": visuals.modulate = Color("#ac00e6")
+		_: visuals.modulate = Color.WHITE
+
+
 func take_damage(amount: int, element_type: String) -> void:
 	current_hp -= amount
 	current_hp = max(0, current_hp) # Can 0'ın altına düşmesin

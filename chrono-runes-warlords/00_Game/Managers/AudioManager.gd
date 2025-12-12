@@ -66,6 +66,7 @@ func play_sfx(data, pitch_scale: float = 1.0) -> void:
 # MÜZİK FONKSİYONLARI (Aynen korundu)
 # ------------------------------------------------------------------------------
 func play_music(stream: AudioStream) -> void:
+	# 1. Önceki fade-out varsa iptal et
 	if music_tween:
 		music_tween.kill()
 	
@@ -75,11 +76,14 @@ func play_music(stream: AudioStream) -> void:
 		music_player.name = "MusicPlayer"
 		add_child(music_player)
 
+	# 2. Sesi her zaman normal seviyeye çek (Çünkü fade-out kısmış olabilir)
 	music_player.volume_db = 0.0
 	
+	# 3. Aynı şarkıysa ve zaten çalıyorsa baştan başlatma
 	if music_player.stream == stream and music_player.playing:
 		return
 		
+	# 4. Yeni şarkıyı başlat
 	music_player.stream = stream
 	music_player.bus = "Music"
 	music_player.play()
@@ -88,7 +92,8 @@ func stop_music() -> void:
 	if music_tween:
 		music_tween.kill()
 	
-	if music_player:
-		var tween = create_tween()
-		tween.tween_property(music_player, "volume_db", -80.0, 1.0)
-		tween.tween_callback(music_player.stop)
+	if music_player and music_player.playing:
+		# Tween'i sınıf değişkenine ata ki play_music onu bulup durdurabilsin
+		music_tween = create_tween()
+		music_tween.tween_property(music_player, "volume_db", -80.0, 1.0)
+		music_tween.tween_callback(music_player.stop)

@@ -38,6 +38,7 @@ fill = 2
 texture_filter = 1
 script = ExtResource("1_5i4q3")
 game_over_scene = ExtResource("2_twcqs")
+floating_text_scene = ExtResource("4_n52v8")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
 layer = -100

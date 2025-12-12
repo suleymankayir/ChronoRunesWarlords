@@ -2,7 +2,9 @@
 class_name CharacterData extends Resource
 
 # --- ENUMS ---
+# --- ENUMS ---
 enum Rarity { COMMON, RARE, EPIC, LEGENDARY }
+enum SkillType { DIRECT_DAMAGE, HEAL, BUFF_ATTACK }
 
 # --- EXPORT VARIABLES (STRICT TYPING) ---
 @export_group("Identity")
@@ -18,6 +20,11 @@ enum Rarity { COMMON, RARE, EPIC, LEGENDARY }
 @export var element_text: String = "Fire"
 @export var level: int = 1
 @export var rarity: Rarity = Rarity.COMMON
+
+@export_group("Skill Specs")
+@export var skill_type: SkillType = SkillType.DIRECT_DAMAGE
+@export var skill_power: int = 250
+@export var skill_name: String = "Fireball"
 
 # --- BACKWARD COMPATIBILITY ---
 # (Added by Lead Developer to prevent breaking InventorySlot.gd and other systems)

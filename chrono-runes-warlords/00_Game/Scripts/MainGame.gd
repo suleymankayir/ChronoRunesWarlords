@@ -8,6 +8,7 @@ extends Node2D
 @onready var skill_button: Button = $UILayer/SkillButton
 @onready var mana_bar: TextureProgressBar = $UILayer/ManaBar
 @export var game_over_scene: PackedScene
+@export var floating_text_scene: PackedScene
 @onready var fog_layer: TextureRect = $BackgroundLayer/FogLayer
 
 
@@ -15,11 +16,19 @@ var current_level: int = 1
 var gold_earned_this_session: int = 0
 var player_max_hp: int = 500
 var player_current_hp: int = 500
+
+var base_enemy_hp: int = 500
+var base_enemy_damage: int = 40
+var current_enemy_damage: int = 0
+
 var is_player_turn: bool = true
 var current_mana: int = 0
 var max_mana: int = 100
 var current_score: int = 0
 var is_level_transitioning: bool = false # Seviye geçişi var mı?
+
+var leader_data: CharacterData
+var is_damage_buff_active: bool = false
 
 func _ready() -> void:
 	if Audio.bg_music:
@@ -44,6 +53,7 @@ func _ready() -> void:
 	board_manager.mana_gained.connect(_on_mana_gained)
 	
 	if enemy:
+		calculate_and_apply_enemy_stats(enemy)
 		enemy.attack_finished.connect(_on_enemy_attack_finished)
 		enemy.died.connect(_on_enemy_died)
 		
@@ -51,6 +61,20 @@ func _ready() -> void:
 	
 	# Debug UI connection
 	GameEconomy.gold_updated.connect(func(new_gold): print("UI GOLD UPDATE: ", new_gold))
+	
+	# --- LEADER SKILL SETUP ---
+	var leader_id = GameEconomy.get_team_leader_id()
+	if leader_id != "":
+		var resource_path = "res://00_Game/Resources/Characters/" + leader_id + ".tres"
+		if ResourceLoader.exists(resource_path):
+			leader_data = load(resource_path)
+			skill_button.text = leader_data.skill_name.to_upper()
+			print("Leader Skill Set: ", leader_data.skill_name)
+		else:
+			print("Leader Resource Not Found: ", resource_path)
+			skill_button.text = "SKILL"
+	else:
+		skill_button.text = "SKILL"
 
 # 1. Oyuncu hamlesini yaptı, taşlar patladı, her şey duruldu.
 func _on_board_settled() -> void:
@@ -69,7 +93,7 @@ func _on_board_settled() -> void:
 		
 func _on_enemy_attack_finished() -> void:
 	# Oyuncuya hasar ver (Örn: 50 vursun)
-	take_player_damage(50)
+	take_player_damage(current_enemy_damage)
 	
 	# Sırayı oyuncuya ver
 	start_player_turn()
@@ -135,7 +159,7 @@ func update_player_ui() -> void:
 		player_hp_bar.value = (float(player_current_hp) / player_max_hp) * 100
 	player_hp_text.text = str(player_current_hp) + " / " + str(player_max_hp)
 
-func _on_player_damage_dealt(amount: int, type: String) -> void:
+func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_count: int) -> void:
 	if is_level_transitioning: return
 	if not is_instance_valid(enemy):
 		return
@@ -143,16 +167,98 @@ func _on_player_damage_dealt(amount: int, type: String) -> void:
 	# DYNAMIC DAMAGE SCALING (GAME ECONOMY)
 	# Formula: 1.0 + (Total Team Level * 0.1)
 	var team_level = GameEconomy.get_team_total_level()
-	var multiplier = 1.0 + (team_level * 0.1) 
+	var base_multiplier = 1.0 + (team_level * 0.1) 
 	
-	var final_damage = int(amount * multiplier)
+	var elemental_multiplier = 1.0
+	
+	if enemy.get("element_type"):
+		var enemy_type = enemy.element_type
+		
+		# Advantage Logic (2.0x)
+		if (type == "red" and enemy_type == "green") or \
+		   (type == "green" and enemy_type == "blue") or \
+		   (type == "blue" and enemy_type == "red") or \
+		   (type == "yellow" and enemy_type == "purple") or \
+		   (type == "purple" and enemy_type == "yellow"):
+			elemental_multiplier = 2.0
+			
+		# Disadvantage Logic (0.5x)
+		# Includes SAME COLOR and WEAK COLOR
+		elif (type == enemy_type) or \
+			 (type == "red" and enemy_type == "blue") or \
+			 (type == "green" and enemy_type == "red") or \
+			 (type == "blue" and enemy_type == "green"):
+			elemental_multiplier = 0.5
+			
+	# --- NEW: COMBO AND MATCH BONUS LOGIC ---
+	var size_multiplier = 1.0
+	var combo_multiplier = 1.0
+	
+	# Match Bonus
+	if match_count == 4:
+		size_multiplier = 1.5
+		spawn_status_text("NICE!", Color.CYAN, enemy.global_position + Vector2(0, -80))
+	elif match_count >= 5:
+		size_multiplier = 2.0
+		spawn_status_text("AMAZING!", Color.MAGENTA, enemy.global_position + Vector2(0, -80))
+		
+	# Combo Bonus
+	if combo_count > 0:
+		combo_multiplier = 1.0 + (combo_count * 0.1)
+		spawn_status_text("COMBO x%d" % combo_count, Color.YELLOW, enemy.global_position + Vector2(100, -50))
+		
+	# Calculate Final Damage
+	var final_damage = int(amount * base_multiplier * elemental_multiplier * size_multiplier * combo_multiplier)
+	
+	# --- BUFF LOGIC ---
+	if is_damage_buff_active:
+		final_damage *= 2
+		is_damage_buff_active = false
+		spawn_status_text("POWER HIT!", Color.YELLOW, enemy.global_position + Vector2(0, -100))
 		
 	enemy.take_damage(final_damage, type)
+	
+	# VISUAL FEEDBACK (DAMAGE NUMBERS)
+	var text_content = str(final_damage)
+	var text_color = Color.WHITE
+	
+	# Determine Color based on Element Type
+	match type:
+		"red": text_color = Color("#ff4d4d")
+		"blue": text_color = Color("#4da6ff")
+		"green": text_color = Color("#5cd65c")
+		"yellow": text_color = Color("#ffd11a")
+		"purple": text_color = Color("#ac00e6")
+	
+	if elemental_multiplier > 1.0:
+		text_content = "CRITICAL!\n%d" % final_damage
+		text_color = Color.ORANGE # Critical Overrides Element Color
+		spawn_status_text(text_content, text_color, enemy.global_position)
+	elif elemental_multiplier < 1.0:
+		text_content = "RESIST\n%d" % final_damage
+		text_color = Color.GRAY # Resist Overrides Element Color
+		spawn_status_text(text_content, text_color, enemy.global_position)
+	else:
+		# Normal Hit
+		spawn_status_text(text_content, text_color, enemy.global_position)
+	
+	# Debug Log
+	print("⚔️ DMG REPORT: Base:%d | Elem:x%.1f | Size:x%.1f | Combo:x%.1f -> FINAL: %d" % [amount, elemental_multiplier, size_multiplier, combo_multiplier, final_damage])
 	
 	current_score += final_damage
 	Audio.play_sfx("playerAttack")
 	await get_tree().create_timer(0.2).timeout
 	Audio.play_sfx("enemyHit")
+
+func spawn_status_text(text: String, color: Color, location: Vector2) -> void:
+	if not floating_text_scene: return
+	
+	var ft = floating_text_scene.instantiate()
+	add_child(ft)
+	ft.global_position = location + Vector2(0, -50)
+	
+	if ft.has_method("start_animation"):
+		ft.start_animation(text, color)
 	
 		
 func _on_mana_gained(amount: int, color_type: String) -> void:
@@ -245,21 +351,18 @@ func spawn_next_enemy() -> void:
 		enemy.queue_free()
 	
 	# Düşman sahnesini yeniden yükle
+	# Düşman sahnesini yeniden yükle
 	var new_enemy = load("res://00_Game/Scenes/Enemy.tscn").instantiate()
 	add_child(new_enemy)
 	new_enemy.position = Vector2(360, 250)
 	
 	# --- STATLARI GÜÇLENDİR (SCALING) ---
-	# Matematik: Her level %20 daha zor
-	var multiplier = 1.0 + ((current_level - 1) * 0.2)
+	calculate_and_apply_enemy_stats(new_enemy)
 	
-	new_enemy.max_hp = int(1000 * multiplier)
-	new_enemy.current_hp = new_enemy.max_hp
-	new_enemy.update_ui()
-	
-	# Düşmanın rengini değiştir (Görsel Çeşitlilik)
-	var hue_shift = (current_level * 0.1) 
-	new_enemy.modulate = Color.from_hsv(hue_shift, 1.0, 1.0)
+	# ELEMENTAL SYSTEM SETUP
+	var types = ["red", "blue", "green", "yellow", "purple"]
+	var random_type = types.pick_random()
+	new_enemy.setup_element(random_type)
 	
 	# BAĞLANTILARI TEKRAR YAP
 	enemy = new_enemy # Global değişkeni güncelle
@@ -270,5 +373,17 @@ func spawn_next_enemy() -> void:
 	board_manager.is_processing_move = false
 	start_player_turn()
 	
-	print("Yeni Düşman Geldi! Seviye: ", current_level, " | Can: ", new_enemy.max_hp)
 	is_level_transitioning = false
+
+func calculate_and_apply_enemy_stats(target_enemy: Enemy) -> void:
+	# Matematik: Her level %20 daha zor
+	var multiplier = 1.0 + ((current_level - 1) * 0.2)
+	
+	target_enemy.max_hp = int(base_enemy_hp * multiplier)
+	current_enemy_damage = int(base_enemy_damage * multiplier)
+	
+	# Canı fulle ve UI'ı güncelle
+	target_enemy.current_hp = target_enemy.max_hp
+	target_enemy.update_ui()
+	
+	print("⚔️ DÜŞMAN STATLARI (Lvl ", current_level, ") -> Can: ", target_enemy.max_hp, " | Hasar: ", current_enemy_damage)

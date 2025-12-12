@@ -11,8 +11,10 @@ class_name BoardManager extends Node2D
 var piece_types: Array[String] = ["red", "blue", "green", "yellow", "purple"]
 
 signal turn_finished # İşlemler bitti sinyali
-signal damage_dealt(total_damage: int, damage_type: String)
+signal damage_dealt(total_damage: int, damage_type: String, match_count: int, combo_count: int)
 signal mana_gained(amount: int, color_type: String)
+
+var current_combo: int = 0
 
 var is_processing_move: bool = false # Oyuncu hamle yaparken girişi kilitlemek için
 
@@ -146,6 +148,9 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 	Audio.play_sfx("swap")
 	is_processing_move = true
 	
+	# Yeni hamle, comboyu sıfırla
+	current_combo = 0
+	
 	# 1. DATA SWAP (İleri)
 	var pos_1 = piece_1.grid_position
 	var pos_2 = piece_2.grid_position
@@ -227,7 +232,6 @@ func destroy_matched_pieces() -> void:
 					else:
 						damage_report[type] = 1
 						
-					spawn_floating_text(10, type, pos)
 					damage_piece(all_pieces[x][y])
 					all_pieces[x][y] = null # Datadan sil
 					was_match_found = true
@@ -241,10 +245,11 @@ func destroy_matched_pieces() -> void:
 		Audio.play_sfx("match", randf_range(0.9, 1.1))
 		
 		if not damage_report.is_empty():
-			var total_dmg = 0
 			for type in damage_report:
-				total_dmg += damage_report[type] * 10
-				damage_dealt.emit(total_dmg, "mixed")
+				var count = damage_report[type]
+				var damage_amount = count * 10
+				# Emit signal with Count and Combo
+				damage_dealt.emit(damage_amount, type, count, current_combo)
 				
 		print("Hasar Raporu: ", damage_report)
 			
@@ -277,6 +282,7 @@ func damage_piece(piece: GamePiece) -> void:
 	if vfx_explosion_scene:
 		var vfx = vfx_explosion_scene.instantiate() as VFX_Explosion
 		add_child(vfx) # BoardManager'a çocuk olarak ekle
+		vfx.z_index = 20 # TAŞLARIN ÜZERİNDE PATLASIN
 		
 		# Taşın rengini alıp efekte veriyoruz!
 		# Not: Sembol sistemine geçmiştik ama 'modulate' rengi hala tutuyor.
@@ -367,6 +373,7 @@ func refill_board() -> void:
 	# Yeni gelen taşlar da eşleşme yaptı mı?
 	if find_matches():
 		print("Zincirleme Patlama!")
+		current_combo += 1 # Zincirleme olduğu için combo artır
 		destroy_matched_pieces() # Fonksiyon kendini tekrar çağırır (Recursion)
 	else:
 		print("Tahta duruldu. Sıra oyuncuda.")
