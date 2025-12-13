@@ -36,7 +36,7 @@ func _ready() -> void:
 	# Ekran 720x1280. Ortalamak için basit matematik:
 	start_pos = Vector2(
 		(720 - total_w) / 2 + (tile_size / 2), 
-		(1280 - total_h) / 2 + (tile_size / 2) + 100 # +100 biraz aşağı kaydırmak için
+		(1280 - total_h) / 2 + (tile_size / 2)
 	)
 	
 	# Veri tablosunu (Array) boşluklarla doldur (Initialize)

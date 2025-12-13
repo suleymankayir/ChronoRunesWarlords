@@ -1,9 +1,10 @@
-[gd_scene load_steps=15 format=3 uid="uid://4wbabeo847r3"]
+[gd_scene load_steps=16 format=3 uid="uid://4wbabeo847r3"]
 
 [ext_resource type="Script" uid="uid://bkmhg754iqdm6" path="res://00_Game/Scripts/MainGame.gd" id="1_5i4q3"]
 [ext_resource type="Script" uid="uid://bhyu20arjme42" path="res://00_Game/Scripts/BoardManager.gd" id="2_ip4sp"]
 [ext_resource type="PackedScene" uid="uid://cqfbtpfokd7hg" path="res://00_Game/Scenes/GameOverUI.tscn" id="2_twcqs"]
 [ext_resource type="PackedScene" uid="uid://btkhd3p5x03cy" path="res://00_Game/Scenes/GamePiece.tscn" id="3_kyhy4"]
+[ext_resource type="PackedScene" uid="uid://dd565hagwlab0" path="res://00_Game/Scenes/BattleHero.tscn" id="4_j0l0h"]
 [ext_resource type="PackedScene" uid="uid://b5b2nihetuer7" path="res://00_Game/Scenes/FloatingText.tscn" id="4_n52v8"]
 [ext_resource type="Shader" uid="uid://b5a4er0ya7wc3" path="res://00_Game/Scenes/MainGame.gdshader" id="4_ql6ba"]
 [ext_resource type="PackedScene" uid="uid://ba2sek45nhbyp" path="res://00_Game/Scenes/Enemy.tscn" id="5_mbifn"]
@@ -34,11 +35,13 @@ gradient = SubResource("Gradient_vky4x")
 height = 32
 fill = 2
 
-[node name="MainGame" type="Node2D"]
+[node name="MainGame" type="Node2D" node_paths=PackedStringArray("heroes_container")]
 texture_filter = 1
 script = ExtResource("1_5i4q3")
 game_over_scene = ExtResource("2_twcqs")
 floating_text_scene = ExtResource("4_n52v8")
+battle_hero_scene = ExtResource("4_j0l0h")
+heroes_container = NodePath("HeroesContainer")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
 layer = -100
@@ -75,7 +78,7 @@ floating_text_scene = ExtResource("4_n52v8")
 vfx_explosion_scene = ExtResource("7_vky4x")
 
 [node name="Enemy" parent="." instance=ExtResource("5_mbifn")]
-position = Vector2(360, 200)
+position = Vector2(359, 178)
 
 [node name="UILayer" type="CanvasLayer" parent="."]
 layer = 100
@@ -87,10 +90,10 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -130.0
-offset_top = -133.0
-offset_right = 91.0
-offset_bottom = -106.0
+offset_left = -123.0
+offset_top = -65.0
+offset_right = 98.0
+offset_bottom = -38.0
 grow_horizontal = 2
 grow_vertical = 0
 value = 100.0
@@ -103,14 +106,6 @@ offset_top = 2.0
 offset_right = 130.0
 offset_bottom = 25.0
 
-[node name="SkillButton" type="Button" parent="UILayer"]
-offset_left = 475.0
-offset_top = 1182.0
-offset_right = 561.0
-offset_bottom = 1213.0
-disabled = true
-text = "ULTIMATE"
-
 [node name="ManaBar" type="TextureProgressBar" parent="UILayer"]
 modulate = Color(0.67400277, 0.41918883, 0.979716, 1)
 offset_left = 232.0
@@ -119,3 +114,19 @@ offset_right = 450.0
 offset_bottom = 1210.0
 nine_patch_stretch = true
 texture_progress = SubResource("GradientTexture2D_ql6ba")
+
+[node name="HeroesContainer" type="HBoxContainer" parent="."]
+custom_minimum_size = Vector2(100, 150)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = 268.0
+offset_top = 992.0
+offset_right = 418.0
+offset_bottom = 1212.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 30
+alignment = 1
