@@ -8,25 +8,89 @@ signal team_updated
 signal high_score_updated(new_score)
 
 # --- CONSTANTS ---
-const SAVE_PATH: String = "user://savegame.json"
+const SAVE_PATH: String = "user://save_game.json"
 const MAX_TEAM_SIZE: int = 3
 
 # --- VARIABLES ---
-var gold: int = 1000
-var gems: int = 50
-var owned_heroes: Dictionary = {}
-var selected_team_ids: Array[String] = []
+var gold: int = 0
+var gems: int = 0
+var owned_heroes: Array = []
+var selected_team_ids: Array = []
 var high_score: int = 0
-
-# DATABASE
 var character_db: Dictionary = {}
 
 func _ready() -> void:
-	# 1. Load Database of Characters
 	_load_character_database()
+	if FileAccess.file_exists(SAVE_PATH):
+		load_game()
+
+func start_new_game() -> void:
+	print(">>> YENİ OYUN BAŞLATILIYOR (RAM + DISK)...")
 	
-	# 2. Load User Save Data
-	load_game()
+	# 1. Force Set RAM Variables First
+	gold = 200
+	gems = 50
+	owned_heroes = ["hero_fire", "hero_water", "hero_earth"]
+	selected_team_ids = ["hero_fire", "hero_water", "hero_earth"]
+	
+	# 2. Emit Signals
+	gold_updated.emit(gold)
+	gems_updated.emit(gems)
+	inventory_updated.emit()
+	team_updated.emit()
+	
+	# 3. Save
+	save_game()
+
+func save_game() -> void:
+	var save_data = {
+		"gold": gold,
+		"gems": gems,
+		"owned_heroes": owned_heroes,
+		"selected_team_ids": selected_team_ids,
+		"high_score": high_score
+	}
+	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(save_data))
+		file.close()
+
+func load_game() -> bool:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return false
+	
+	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if file:
+		var json = JSON.new()
+		var error = json.parse(file.get_as_text())
+		if error == OK:
+			var data = json.data
+			if typeof(data) == TYPE_DICTIONARY:
+				gold = int(data.get("gold", 0))
+				gems = int(data.get("gems", 0))
+				high_score = int(data.get("high_score", 0))
+				
+				var loaded_heroes = data.get("owned_heroes", [])
+				if typeof(loaded_heroes) == TYPE_ARRAY:
+					owned_heroes = loaded_heroes
+				elif typeof(loaded_heroes) == TYPE_DICTIONARY: # Legacy support
+					owned_heroes = loaded_heroes.keys()
+				
+				var loaded_team = data.get("selected_team_ids", [])
+				selected_team_ids.clear()
+				for id in loaded_team:
+					selected_team_ids.append(str(id))
+
+				# Emit Signals
+				gold_updated.emit(gold)
+				gems_updated.emit(gems)
+				inventory_updated.emit()
+				team_updated.emit()
+				high_score_updated.emit(high_score)
+				file.close()
+				return true
+		file.close()
+	return false
 
 func _load_character_database() -> void:
 	var path = "res://00_Game/Resources/Characters/"
@@ -40,41 +104,21 @@ func _load_character_database() -> void:
 				if res:
 					character_db[res.id] = res
 			file_name = dir.get_next()
-		print("GameEconomy: Loaded %d heroes into Database." % character_db.size())
-	else:
-		push_error("GameEconomy: Failed to open Characters directory!")
 
 func get_character_data(id: String) -> CharacterData:
-	if id in character_db:
-		return character_db[id]
-	push_error("GameEconomy: Character ID not found in DB: " + id)
-	return null
+	return character_db.get(id)
 
-# --- CURRENCY FUNCTIONS ---
-
-func has_enough_gold(amount: int) -> bool:
-	return gold >= amount
-
-func spend_gold(amount: int) -> bool:
-	if has_enough_gold(amount):
-		gold -= amount
-		gold_updated.emit(gold)
-		save_game()
-		return true
-	return false
+# --- HELPER FUNCTIONS ---
 
 func add_gold(amount: int) -> void:
 	gold += amount
 	gold_updated.emit(gold)
 	save_game()
 
-func has_enough_gems(amount: int) -> bool:
-	return gems >= amount
-
-func spend_gems(amount: int) -> bool:
-	if has_enough_gems(amount):
-		gems -= amount
-		gems_updated.emit(gems)
+func spend_gold(amount: int) -> bool:
+	if gold >= amount:
+		gold -= amount
+		gold_updated.emit(gold)
 		save_game()
 		return true
 	return false
@@ -84,139 +128,61 @@ func add_gems(amount: int) -> void:
 	gems_updated.emit(gems)
 	save_game()
 
-# --- HERO INVENTORY FUNCTIONS ---
+func spend_gems(amount: int) -> bool:
+	if gems >= amount:
+		gems -= amount
+		gems_updated.emit(gems)
+		save_game()
+		return true
+	return false
 
 func add_hero(hero_data: CharacterData) -> int:
 	if hero_data.id in owned_heroes:
-		print("GameEconomy: Hero ", hero_data.id, " already owned! Converting to Gold.")
-		var refund_amount = 100
-		add_gold(refund_amount) # Saves automatically
-		return refund_amount
-	else:
-		print("GameEconomy: Adding new hero ", hero_data.id)
-		owned_heroes[hero_data.id] = {"level": 1}
-		inventory_updated.emit()
-		save_game()
-		return 0
+		add_gold(100) # Duplicate reward
+		return 100
+	
+	owned_heroes.append(hero_data.id)
+	inventory_updated.emit()
+	save_game()
+	return 0
 
-func get_hero_level(id: String) -> int:
-	if id in owned_heroes:
-		return owned_heroes[id].get("level", 1)
-	return 1
+func unlock_character(hero_data: CharacterData) -> void:
+	add_hero(hero_data)
 
-func save_hero_level(id: String, new_level: int) -> void:
-	if id in owned_heroes:
-		owned_heroes[id]["level"] = new_level
-		print("GameEconomy: Hero ", id, " upgraded to level ", new_level)
-		inventory_updated.emit()
-		save_game()
-
-# --- TEAM MANAGEMENT ---
-
-func toggle_hero_selection(hero_id: String) -> void:
-	if hero_id in selected_team_ids:
-		selected_team_ids.erase(hero_id)
-		print("GameEconomy: Removed ", hero_id, " from team.")
-		team_updated.emit()
-		save_game()
-	elif selected_team_ids.size() < MAX_TEAM_SIZE:
-		if hero_id in owned_heroes:
-			selected_team_ids.append(hero_id)
-			print("GameEconomy: Added ", hero_id, " to team.")
-			team_updated.emit()
-			save_game()
-	else:
-		print("GameEconomy: Team is full, cannot add ", hero_id)
-
-func is_hero_selected(hero_id: String) -> bool:
-	return hero_id in selected_team_ids
+func get_team_total_level() -> int:
+	var total = 0
+	if selected_team_ids.is_empty():
+		return 1
+	for id in selected_team_ids:
+		total += get_hero_level(id)
+	return total
 
 func get_team_leader_id() -> String:
 	if not selected_team_ids.is_empty():
 		return selected_team_ids[0]
 	return ""
 
-# --- GAMEPLAY & SCALING LOGIC ---
+func save_hero_level(id: String, level: int) -> void:
+	pass # Array doesn't store levels
 
-func check_new_high_score(current_score: int) -> bool:
-	if current_score > high_score:
-		print("GameEconomy: NEW HIGH SCORE! ", current_score)
-		high_score = current_score
+func get_hero_level(id: String) -> int:
+	return 1 # Default level 1 for Array system
+
+func check_new_high_score(score: int) -> void:
+	if score > high_score:
+		high_score = score
 		high_score_updated.emit(high_score)
 		save_game()
-		return true
-	return false
 
-func get_team_total_level() -> int:
-	var total_level = 0
-	if selected_team_ids.is_empty():
-		return 1 # Base level if empty
-		
-	for id in selected_team_ids:
-		total_level += get_hero_level(id)
-	
-	return total_level
+func toggle_hero_selection(hero_id: String) -> void:
+	if hero_id in selected_team_ids:
+		selected_team_ids.erase(hero_id)
+		team_updated.emit()
+		save_game()
+	elif selected_team_ids.size() < MAX_TEAM_SIZE and hero_id in owned_heroes:
+		selected_team_ids.append(hero_id)
+		team_updated.emit()
+		save_game()
 
-# --- PERSISTENCE (SAVE/LOAD) - BULLETPROOF VERSION ---
-
-func save_game() -> void:
-	var save_data = {
-		"gold": gold,
-		"gems": gems,
-		"owned_heroes": owned_heroes,
-		"selected_team_ids": selected_team_ids,
-		"high_score": high_score
-	}
-	
-	print("GameEconomy: SAVING DATA -> ", JSON.stringify(save_data))
-	
-	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file:
-		var json_string = JSON.stringify(save_data)
-		file.store_string(json_string)
-		file.close() # Ensure close
-	else:
-		push_error("GameEconomy: FAILED to open save file for writing at " + SAVE_PATH)
-
-func load_game() -> void:
-	if not FileAccess.file_exists(SAVE_PATH):
-		print("GameEconomy: No save file found at ", SAVE_PATH, ". Using default values.")
-		return
-	
-	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
-	if file:
-		var text = file.get_as_text()
-		print("GameEconomy: LOADING DATA RAW -> ", text)
-		
-		var json = JSON.new()
-		var error = json.parse(text)
-		
-		if error == OK:
-			var data = json.data
-			if typeof(data) == TYPE_DICTIONARY:
-				print("GameEconomy: LOAD SUCCESS. Data: ", data)
-				
-				# Use .get() with defaults for safety
-				gold = int(data.get("gold", 1000))
-				gems = int(data.get("gems", 50))
-				owned_heroes = data.get("owned_heroes", {})
-				
-				# Handle Array type safety
-				var loaded_team = data.get("selected_team_ids", [])
-				selected_team_ids.clear()
-				selected_team_ids.assign(loaded_team)
-				
-				high_score = int(data.get("high_score", 0))
-				
-				# Emit signals to update listeners
-				gold_updated.emit(gold)
-				gems_updated.emit(gems)
-				inventory_updated.emit()
-				team_updated.emit()
-				high_score_updated.emit(high_score)
-			else:
-				push_error("GameEconomy: Save data is not a Dictionary!")
-		else:
-			push_error("GameEconomy: JSON Parse Error on Load: " + json.get_error_message())
-	else:
-		push_error("GameEconomy: FAILED to open save file for reading!")
+func is_hero_selected(hero_id: String) -> bool:
+	return hero_id in selected_team_ids

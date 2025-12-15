@@ -5,6 +5,7 @@ class_name CollectionUI extends Control
 @export var character_popup: CharacterDetailPopup # Using the existing popup reference style
 @export var grid_container: GridContainer
 @export var btn_back: Button
+# Keep the export for convenience, but we won't rely on it for logic
 @export var all_possible_heroes: Array[CharacterData] = []
 
 func _ready() -> void:
@@ -27,24 +28,26 @@ func refresh_grid() -> void:
 
 	# Print 2
 	print(">>> BANKADAKİ KAHRAMAN SAYISI: ", GameEconomy.owned_heroes.size())
-	print(">>> SAHİP OLUNAN ID'LER: ", GameEconomy.owned_heroes.keys())
+	print(">>> SAHİP OLUNAN ID'LER: ", GameEconomy.owned_heroes)
 	
-	# Print 3
-	print(">>> VİTRİNDEKİ TOPLAM SLOT ADAYI: ", all_possible_heroes.size())
+	# Using character_db size for debug now
+	print(">>> DB KAHRAMAN SAYISI: ", GameEconomy.character_db.size())
 	
 	# 1. Clear existing slots
 	for child in grid_container.get_children():
 		child.queue_free()
 	
-	# 2. Iterate through all possible heroes
-	for hero_data in all_possible_heroes:
+	# 2. Iterate through ALL characters in Database
+	var all_heroes = GameEconomy.character_db.values()
+	
+	for hero_data in all_heroes:
 		if not hero_data:
 			continue
 			
 		# Print 4 - Loop Logic
 		print("--- Kontrol ediliyor: ", hero_data.id, " | Sahip miyiz?: ", GameEconomy.owned_heroes.has(hero_data.id))
 		
-		# Check if owned
+		# Check if owned (using Array check)
 		if hero_data.id in GameEconomy.owned_heroes:
 			_create_slot(hero_data)
 		else:

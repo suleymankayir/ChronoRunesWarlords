@@ -5,7 +5,7 @@ extends Node2D
 @onready var player_hp_bar: ProgressBar = $UILayer/PlayerHPBar
 @onready var player_hp_text: Label = $UILayer/PlayerHPBar/PlayerHPText
 @onready var ui_layer: CanvasLayer = $UILayer
-@onready var mana_bar: TextureProgressBar = $UILayer/ManaBar # Kept for compatibility if needed, but not primary
+@onready var mana_bar: TextureProgressBar = $UILayer/ManaBar 
 
 @export var game_over_scene: PackedScene
 @export var floating_text_scene: PackedScene
@@ -24,14 +24,13 @@ var base_enemy_damage: int = 40
 var current_enemy_damage: int = 0
 
 var is_player_turn: bool = true
-var current_mana: int = 0 # Global mana kept for legacy or other uses if needed
+var current_mana: int = 0 
 var max_mana: int = 100
 var current_score: int = 0
 var is_level_transitioning: bool = false 
 
 var leader_data: CharacterData
-# var is_damage_buff_active: bool = false # REMOVED per requirement
-var buff_remaining_turns: int = 0 # NEW: Duration-based buff
+var buff_remaining_turns: int = 0 
 
 func _ready() -> void:
 	if Audio.bg_music:
@@ -57,7 +56,7 @@ func _ready() -> void:
 		enemy.attack_finished.connect(_on_enemy_attack_finished)
 		enemy.died.connect(_on_enemy_died)
 		
-	# NEW: Initialize Heroes
+	# Initialize Heroes
 	_setup_battle_heroes()
 	
 	# Debug UI connection
@@ -77,7 +76,6 @@ func _setup_battle_heroes() -> void:
 		child.queue_free()
 		
 	var team_ids = GameEconomy.selected_team_ids
-	# If no team, maybe safe default or just return
 	if team_ids.is_empty():
 		return
 		
@@ -96,13 +94,11 @@ func _setup_battle_heroes() -> void:
 			if hero_instance.has_signal("skill_activated"):
 				hero_instance.skill_activated.connect(_on_hero_skill_activated)
 
-# 1. Oyuncu hamlesini yaptı, taşlar patladı, her şey duruldu.
 func _on_board_settled() -> void:
 	print("Tahta duruldu. Sıra düşmana geçiyor...")
 	is_player_turn = false
-	board_manager.is_processing_move = true # Tahtayı kilitle (Garanti olsun)
+	board_manager.is_processing_move = true # Tahtayı kilitle
 	
-	# Kısa bir bekleme (Olayları idrak etmek için)
 	await get_tree().create_timer(0.5).timeout
 	
 	# Düşmanı saldırt
@@ -112,15 +108,13 @@ func _on_board_settled() -> void:
 		start_player_turn()
 		
 func _on_enemy_attack_finished() -> void:
-	# Oyuncuya hasar ver
 	take_player_damage(current_enemy_damage)
-	# Sırayı oyuncuya ver
 	start_player_turn()
 	
 func start_player_turn() -> void:
 	print("Sıra Oyuncuda!")
 	is_player_turn = true
-	board_manager.is_processing_move = false # Kilidi aç
+	board_manager.is_processing_move = false 
 	
 func take_player_damage(amount: int) -> void:
 	player_current_hp -= amount
@@ -135,6 +129,7 @@ func take_player_damage(amount: int) -> void:
 			tween.tween_property(camera, "offset", offset, 0.05)
 		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
 
+	# Detect Death
 	if player_current_hp <= 0:
 		print("GAME OVER - OYUNCU ÖLDÜ")
 		game_over(false)
@@ -163,12 +158,13 @@ func game_over(is_victory: bool) -> void:
 		popup.offset_bottom = 0
 	
 	if popup.has_method("show_result"):
+		# Using current_score as requested
 		popup.show_result(is_victory, current_score)
 	
 	if popup.has_signal("restart_requested"):
-		popup.restart_requested.connect(reload_game)
+		popup.restart_requested.connect(_on_restart_game)
 
-func reload_game() -> void:
+func _on_restart_game() -> void:
 	get_tree().reload_current_scene()
 		
 func update_player_ui() -> void:
@@ -221,7 +217,7 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 		
 	var final_damage = int(amount * base_multiplier * elemental_multiplier * size_multiplier * combo_multiplier)
 	
-	# UPDATED: BUFF LOGIC (Duration-based)
+	# BUFF LOGIC
 	if buff_remaining_turns > 0:
 		final_damage = int(final_damage * 1.5)
 		buff_remaining_turns -= 1
@@ -229,7 +225,7 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 		
 	enemy.take_damage(final_damage, type)
 	
-	# NEW: MANA DISTRIBUTION (Updated to 15 per gem)
+	# MANA DISTRIBUTION
 	distribute_mana(type, match_count)
 	
 	# VISUAL FEEDBACK
@@ -266,16 +262,13 @@ func distribute_mana(gem_type: String, match_count: int) -> void:
 		for hero in heroes_container.get_children():
 			if not hero.hero_data: continue
 			
-			# FIX: CharacterData uses 'element_text' (Fire, Water, etc.) not 'element_type'
 			var hero_element = _get_element_color(hero.hero_data.element_text)
 			
 			if hero_element == gem_type:
-				# Mana formula: 15 per tile
 				var mana_amount = match_count * 15
 				if hero.has_method("add_mana"):
 					hero.add_mana(mana_amount)
 
-# Helper to map CharacterData text to Game colors
 func _get_element_color(text: String) -> String:
 	match text.to_lower():
 		"fire": return "red"
@@ -283,7 +276,7 @@ func _get_element_color(text: String) -> String:
 		"earth", "nature": return "green"
 		"light": return "yellow"
 		"dark": return "purple"
-		_: return text.to_lower() # Fallback if it matches directly
+		_: return text.to_lower() 
 
 func spawn_status_text(text: String, color: Color, location: Vector2, text_scale: float = 1.0) -> void:
 	if not floating_text_scene: return
@@ -298,10 +291,8 @@ func spawn_status_text(text: String, color: Color, location: Vector2, text_scale
 	
 		
 func _on_mana_gained(amount: int, color_type: String) -> void:
-	# Deprecated function (replaced by _on_player_damage_dealt distribution)
 	pass
 
-# NEW: Unified Skill Handler
 func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	if is_level_transitioning: return
 	if not is_instance_valid(enemy): return
@@ -312,7 +303,6 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	var power = hero_data.skill_power
 	var type = hero_data.skill_type
 	
-	# Scaling based on team level
 	var team_level = GameEconomy.get_team_total_level()
 	var final_power = int(power * (1.0 + (team_level * 0.1)))
 	
@@ -338,7 +328,6 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 			tween.tween_callback(color_rect.queue_free)
 			
 		CharacterData.SkillType.BUFF_ATTACK:
-			# UPDATED: Duration-based Logic
 			buff_remaining_turns = 3
 			spawn_status_text("RAGE MODE! (3 HITS)", Color.YELLOW, ui_layer.offset + Vector2(200, 400))
 			
@@ -350,7 +339,6 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 		tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
 
 func _process(delta: float) -> void:
-	# Skill button animation deprecated, logic moved to BattleHero
 	pass
 
 func _on_enemy_died() -> void:
@@ -384,7 +372,6 @@ func _on_enemy_died() -> void:
 	spawn_next_enemy()
 
 func spawn_next_enemy() -> void:
-	# RESET BUFFS (Do not carry over)
 	buff_remaining_turns = 0
 	
 	if is_instance_valid(enemy):
