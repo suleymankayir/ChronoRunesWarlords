@@ -10,5 +10,4 @@ character_name = "Ignis"
 portrait = ExtResource("1_0qk5r")
 rarity_color = Color(0.8836423, 0.6968242, 0.19456512, 1)
 rarity = 3
-skill_power = 10000
 metadata/_custom_type_script = "uid://chd0do1hdflc"

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://4wbabeo847r3"]
+[gd_scene load_steps=17 format=3 uid="uid://4wbabeo847r3"]
 
 [ext_resource type="Script" uid="uid://bkmhg754iqdm6" path="res://00_Game/Scripts/MainGame.gd" id="1_5i4q3"]
 [ext_resource type="Script" uid="uid://bhyu20arjme42" path="res://00_Game/Scripts/BoardManager.gd" id="2_ip4sp"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://b5b2nihetuer7" path="res://00_Game/Scenes/FloatingText.tscn" id="4_n52v8"]
 [ext_resource type="Shader" uid="uid://b5a4er0ya7wc3" path="res://00_Game/Scenes/MainGame.gdshader" id="4_ql6ba"]
 [ext_resource type="PackedScene" uid="uid://ba2sek45nhbyp" path="res://00_Game/Scenes/Enemy.tscn" id="5_mbifn"]
+[ext_resource type="PackedScene" uid="uid://bispbtnodtp7u" path="res://00_Game/Scenes/PauseMenu.tscn" id="5_vasob"]
 [ext_resource type="PackedScene" uid="uid://cwcohovykweop" path="res://00_Game/Scenes/VFX_Explosion.tscn" id="7_vky4x"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_j0l0h"]
@@ -42,8 +43,10 @@ game_over_scene = ExtResource("2_twcqs")
 floating_text_scene = ExtResource("4_n52v8")
 battle_hero_scene = ExtResource("4_j0l0h")
 heroes_container = NodePath("HeroesContainer")
+pause_menu_scene = ExtResource("5_vasob")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
+process_mode = 3
 layer = -100
 
 [node name="Background" type="ColorRect" parent="BackgroundLayer"]
@@ -81,6 +84,7 @@ vfx_explosion_scene = ExtResource("7_vky4x")
 position = Vector2(359, 178)
 
 [node name="UILayer" type="CanvasLayer" parent="."]
+process_mode = 3
 layer = 100
 
 [node name="PlayerHPBar" type="ProgressBar" parent="UILayer"]

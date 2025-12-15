@@ -16,7 +16,9 @@ var gold: int = 0
 var gems: int = 0
 var owned_heroes: Array = []
 var selected_team_ids: Array = []
+var hero_levels: Dictionary = {} 
 var high_score: int = 0
+var battle_state: Dictionary = {} # STORE BATTLE STATE HERE
 var character_db: Dictionary = {}
 
 func _ready() -> void:
@@ -32,6 +34,12 @@ func start_new_game() -> void:
 	gems = 50
 	owned_heroes = ["hero_fire", "hero_water", "hero_earth"]
 	selected_team_ids = ["hero_fire", "hero_water", "hero_earth"]
+	hero_levels = {} 
+	battle_state = {}
+	
+	# Initialize levels for owned heroes
+	for h in owned_heroes:
+		hero_levels[h] = 1
 	
 	# 2. Emit Signals
 	gold_updated.emit(gold)
@@ -48,7 +56,9 @@ func save_game() -> void:
 		"gems": gems,
 		"owned_heroes": owned_heroes,
 		"selected_team_ids": selected_team_ids,
-		"high_score": high_score
+		"hero_levels": hero_levels,
+		"high_score": high_score,
+		"battle_state": battle_state
 	}
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -73,13 +83,19 @@ func load_game() -> bool:
 				var loaded_heroes = data.get("owned_heroes", [])
 				if typeof(loaded_heroes) == TYPE_ARRAY:
 					owned_heroes = loaded_heroes
-				elif typeof(loaded_heroes) == TYPE_DICTIONARY: # Legacy support
-					owned_heroes = loaded_heroes.keys()
 				
 				var loaded_team = data.get("selected_team_ids", [])
 				selected_team_ids.clear()
 				for id in loaded_team:
 					selected_team_ids.append(str(id))
+					
+				var loaded_levels = data.get("hero_levels", {})
+				if typeof(loaded_levels) == TYPE_DICTIONARY:
+					hero_levels = loaded_levels
+					
+				var loaded_battle = data.get("battle_state", {})
+				if typeof(loaded_battle) == TYPE_DICTIONARY:
+					battle_state = loaded_battle
 
 				# Emit Signals
 				gold_updated.emit(gold)
@@ -108,12 +124,23 @@ func _load_character_database() -> void:
 func get_character_data(id: String) -> CharacterData:
 	return character_db.get(id)
 
+# --- BATTLE PERSISTENCE ---
+
+func save_battle_state(data: Dictionary) -> void:
+	battle_state = data
+	save_game()
+
+func clear_battle_state() -> void:
+	battle_state = {}
+	save_game()
+	
+func has_saved_battle() -> bool:
+	return not battle_state.is_empty()
+
 # --- HELPER FUNCTIONS ---
 
-func add_gold(amount: int) -> void:
-	gold += amount
-	gold_updated.emit(gold)
-	save_game()
+func has_enough_gold(amount: int) -> bool:
+	return gold >= amount
 
 func spend_gold(amount: int) -> bool:
 	if gold >= amount:
@@ -122,6 +149,11 @@ func spend_gold(amount: int) -> bool:
 		save_game()
 		return true
 	return false
+
+func add_gold(amount: int) -> void:
+	gold += amount
+	gold_updated.emit(gold)
+	save_game()
 
 func add_gems(amount: int) -> void:
 	gems += amount
@@ -136,12 +168,15 @@ func spend_gems(amount: int) -> bool:
 		return true
 	return false
 
+# --- HERO MANAGEMENT ---
+
 func add_hero(hero_data: CharacterData) -> int:
 	if hero_data.id in owned_heroes:
 		add_gold(100) # Duplicate reward
 		return 100
 	
 	owned_heroes.append(hero_data.id)
+	hero_levels[hero_data.id] = 1 # Init level 1
 	inventory_updated.emit()
 	save_game()
 	return 0
@@ -162,11 +197,17 @@ func get_team_leader_id() -> String:
 		return selected_team_ids[0]
 	return ""
 
+# --- LEVEL SYSTEM ---
+
 func save_hero_level(id: String, level: int) -> void:
-	pass # Array doesn't store levels
+	hero_levels[id] = level
+	inventory_updated.emit()
+	save_game()
 
 func get_hero_level(id: String) -> int:
-	return 1 # Default level 1 for Array system
+	return hero_levels.get(id, 1) # Default to 1 if not found
+
+# --- SCORE & TEAM ---
 
 func check_new_high_score(score: int) -> void:
 	if score > high_score:
