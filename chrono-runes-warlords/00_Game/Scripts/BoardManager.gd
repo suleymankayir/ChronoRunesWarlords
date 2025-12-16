@@ -239,36 +239,74 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 
 func destroy_matched_pieces() -> void:
 	var was_match_found = false
-	var damage_report = {}
-	
+	var visited_mask = []
+	for i in range(width):
+		var col = []
+		col.resize(height)
+		col.fill(false)
+		visited_mask.append(col)
+		
+	# Find independent clusters
 	for x in range(width):
 		for y in range(height):
-			if all_pieces[x][y] != null:
-				if all_pieces[x][y].matched:
-					var type = all_pieces[x][y].type
+			if all_pieces[x][y] != null and all_pieces[x][y].matched and not visited_mask[x][y]:
+				# Found a new cluster
+				was_match_found = true
+				var cluster = get_match_cluster(x, y, visited_mask)
+				
+				# Process this specific cluster
+				if not cluster.is_empty():
+					var type = cluster[0].type
+					var count = cluster.size()
+					var damage_amount = count * 10
 					
-					mana_gained.emit(10, type)
+					# Emit EXACTLY for this cluster
+					damage_dealt.emit(damage_amount, type, count, current_combo)
+					mana_gained.emit(count * 5, type) # Adjusted mana gain logic slightly per cluster
 					
-					if damage_report.has(type):
-						damage_report[type] += 1
-					else:
-						damage_report[type] = 1
-						
-					damage_piece(all_pieces[x][y])
-					all_pieces[x][y] = null
-					was_match_found = true
+					# Destroy pieces in this cluster
+					for piece in cluster:
+						damage_piece(piece)
+						all_pieces[piece.grid_position.x][piece.grid_position.y] = null
 					
 	if was_match_found:
 		Audio.play_sfx("match", randf_range(0.9, 1.1))
-		
-		if not damage_report.is_empty():
-			for type in damage_report:
-				var count = damage_report[type]
-				var damage_amount = count * 10
-				damage_dealt.emit(damage_amount, type, count, current_combo)
-				
 		await get_tree().create_timer(0.3).timeout
 		refill_board()
+
+func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array[GamePiece]:
+	var cluster: Array[GamePiece] = []
+	var queue: Array[Vector2i] = [Vector2i(start_x, start_y)]
+	var target_type = all_pieces[start_x][start_y].type
+	
+	visited_mask[start_x][start_y] = true
+	
+	while not queue.is_empty():
+		var current_pos = queue.pop_front()
+		var x = current_pos.x
+		var y = current_pos.y
+		var piece = all_pieces[x][y]
+		
+		# Validation (Existence + Match Status + Type)
+		if piece and piece.matched and piece.type == target_type:
+			cluster.append(piece)
+			
+			# Check Neighbors (Up, Down, Left, Right)
+			var neighbors = [
+				Vector2i(x + 1, y), Vector2i(x - 1, y),
+				Vector2i(x, y + 1), Vector2i(x, y - 1)
+			]
+			
+			for n in neighbors:
+				if n.x >= 0 and n.x < width and n.y >= 0 and n.y < height:
+					if not visited_mask[n.x][n.y] and all_pieces[n.x][n.y] != null:
+						# Only add to queue if it matches criteria TO BE VISITED
+						# Optimistic check here saves queue size
+						if all_pieces[n.x][n.y].matched and all_pieces[n.x][n.y].type == target_type:
+							visited_mask[n.x][n.y] = true
+							queue.append(n)
+							
+	return cluster
 
 func damage_piece(piece: GamePiece) -> void:
 	if vfx_explosion_scene:

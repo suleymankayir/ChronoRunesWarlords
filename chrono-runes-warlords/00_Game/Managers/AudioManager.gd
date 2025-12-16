@@ -21,9 +21,21 @@ var bg_music = preload("res://01_Assets/Audio/Music/bg_music.mp3")
 var music_tween: Tween
 @onready var music_player: AudioStreamPlayer = $MusicPlayer
 
+var music_volume: float = 1.0
+var sfx_volume: float = 1.0
+
 func _ready() -> void:
 	if bg_music:
 		play_music(bg_music)
+		
+	# Initialize volume variables from AudioServer
+	var music_bus = AudioServer.get_bus_index("Music")
+	if music_bus != -1:
+		music_volume = db_to_linear(AudioServer.get_bus_volume_db(music_bus))
+		
+	var sfx_bus = AudioServer.get_bus_index("SFX")
+	if sfx_bus != -1:
+		sfx_volume = db_to_linear(AudioServer.get_bus_volume_db(sfx_bus))
 
 # ------------------------------------------------------------------------------
 # HİBRİT SFX FONKSİYONU (Sihir Burada)
@@ -97,3 +109,28 @@ func stop_music() -> void:
 		music_tween = create_tween()
 		music_tween.tween_property(music_player, "volume_db", -80.0, 1.0)
 		music_tween.tween_callback(music_player.stop)
+
+# ------------------------------------------------------------------------------
+# SES AYARLARI (Yeni)
+# ------------------------------------------------------------------------------
+func set_music_volume(value: float) -> void:
+	music_volume = value
+	var bus_idx = AudioServer.get_bus_index("Music")
+	if bus_idx == -1: return
+	
+	if value <= 0.05:
+		AudioServer.set_bus_mute(bus_idx, true)
+	else:
+		AudioServer.set_bus_mute(bus_idx, false)
+		AudioServer.set_bus_volume_db(bus_idx, linear_to_db(value))
+
+func set_sfx_volume(value: float) -> void:
+	sfx_volume = value
+	var bus_idx = AudioServer.get_bus_index("SFX")
+	if bus_idx == -1: return
+	
+	if value <= 0.05:
+		AudioServer.set_bus_mute(bus_idx, true)
+	else:
+		AudioServer.set_bus_mute(bus_idx, false)
+		AudioServer.set_bus_volume_db(bus_idx, linear_to_db(value))

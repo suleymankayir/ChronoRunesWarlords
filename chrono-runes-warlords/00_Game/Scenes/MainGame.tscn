@@ -36,7 +36,7 @@ gradient = SubResource("Gradient_vky4x")
 height = 32
 fill = 2
 
-[node name="MainGame" type="Node2D" node_paths=PackedStringArray("heroes_container")]
+[node name="MainGame" type="Node2D" node_paths=PackedStringArray("heroes_container", "camera")]
 texture_filter = 1
 script = ExtResource("1_5i4q3")
 game_over_scene = ExtResource("2_twcqs")
@@ -44,6 +44,7 @@ floating_text_scene = ExtResource("4_n52v8")
 battle_hero_scene = ExtResource("4_j0l0h")
 heroes_container = NodePath("HeroesContainer")
 pause_menu_scene = ExtResource("5_vasob")
+camera = NodePath("Camera2D")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
 process_mode = 3

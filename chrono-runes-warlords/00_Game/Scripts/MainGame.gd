@@ -6,14 +6,14 @@ extends Node2D
 @onready var player_hp_text: Label = $UILayer/PlayerHPBar/PlayerHPText
 @onready var ui_layer: CanvasLayer = $UILayer
 @onready var mana_bar: TextureProgressBar = $UILayer/ManaBar 
+@onready var fog_layer: TextureRect = $BackgroundLayer/FogLayer
 
 @export var game_over_scene: PackedScene
 @export var floating_text_scene: PackedScene
 @export var battle_hero_scene: PackedScene 
 @export var heroes_container: HBoxContainer 
 @export var pause_menu_scene: PackedScene 
-
-@onready var fog_layer: TextureRect = $BackgroundLayer/FogLayer
+@export var camera: Camera2D
 
 var current_level: int = 1
 var gold_earned_this_session: int = 0
@@ -37,6 +37,9 @@ func _ready() -> void:
 	if Audio.bg_music:
 		Audio.play_music(Audio.bg_music)
 		
+	# Use global level tracking
+	current_level = GameEconomy.current_map_level
+		
 	# DYNAMIC STATS
 	var team_level = GameEconomy.get_team_total_level()
 	player_max_hp = 500 + (team_level * 50)
@@ -52,11 +55,15 @@ func _ready() -> void:
 	else:
 		print(">>> STARTING FRESH BATTLE...")
 		player_current_hp = player_max_hp
-		if enemy:
-			calculate_and_apply_enemy_stats(enemy)
-			enemy.attack_finished.connect(_on_enemy_attack_finished)
-			enemy.died.connect(_on_enemy_died)
+		
+		# Reset Mana for all heroes if possible (requires waiting for setup or doing it in setup)
+		# For now, just ensure enemy setup is correct for the level
+		if is_instance_valid(enemy): enemy.queue_free()
+		
+		# Spawn fresh enemy
+		spawn_next_enemy()
 		board_manager.spawn_board()
+
 		
 	update_player_ui()
 	_setup_battle_heroes()
@@ -74,7 +81,6 @@ func show_pause_menu() -> void:
 	if not pause_menu_scene: return
 	
 	# Create a DEDICATED CanvasLayer for the Pause Menu
-	# This ensures it resides on top of everything (Layer 100) and is isolated from other UI constraints.
 	var pause_layer = CanvasLayer.new()
 	pause_layer.layer = 100 
 	pause_layer.name = "DedicatedPauseLayer"
@@ -83,15 +89,12 @@ func show_pause_menu() -> void:
 	var menu = pause_menu_scene.instantiate()
 	pause_layer.add_child(menu)
 	
-	# Connect Signals
 	if menu.has_signal("quit_requested"):
 		menu.quit_requested.connect(_on_pause_quit)
 		
-	# Pause the game
 	get_tree().paused = true
 
 func _on_pause_quit() -> void:
-	# CRITICAL: Save Logic
 	_save_current_battle_state()
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
@@ -147,6 +150,7 @@ func start_player_turn() -> void:
 func take_player_damage(amount: int) -> void:
 	player_current_hp -= amount
 	update_player_ui()
+	shake_screen(5.0, 0.3)
 	
 	if player_current_hp <= 0:
 		GameEconomy.clear_battle_state() 
@@ -159,7 +163,18 @@ func game_over(is_victory: bool) -> void:
 	else: Audio.play_sfx("gameover")
 	
 	GameEconomy.check_new_high_score(current_score)
-	GameEconomy.clear_battle_state()
+	
+	if not is_victory:
+		GameEconomy.clear_battle_state()
+	else:
+		# If you want to keep state for subsequent wins until boss is done, logic goes here.
+		# For now, we clear it here OR in _on_enemy_died. 
+		# But usually on GAME OVER (win/loss screen), we might want to clear.
+		# However, existing logic clears in _on_enemy_died before moving to next level IF it's a win.
+		# Wait, actually GameEconomy.clear_battle_state() was already there.
+		# THE CRITICAL FIX is ensuring it clears on LOSS.
+		GameEconomy.clear_battle_state()
+
 	
 	var popup = game_over_scene.instantiate()
 	ui_layer.add_child(popup)
@@ -169,6 +184,8 @@ func game_over(is_victory: bool) -> void:
 		popup.restart_requested.connect(_on_restart_game)
 
 func _on_restart_game() -> void:
+	# FIX: Clear state before reloading to prevent "Zombie Loop"
+	GameEconomy.clear_battle_state()
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 		
@@ -184,27 +201,33 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	var team_level = GameEconomy.get_team_total_level()
 	var base_multiplier = 1.0 + (team_level * 0.1) 
 	var elemental_multiplier = 1.0
+	var is_weakness = false
+	var is_resistance = false
 	
 	if enemy.get("element_type"):
 		var enemy_type = enemy.element_type
+		# Elemental Matrix - STRICT STATELESS CALCULATION
+		# 1. Weakness (2.0x)
 		if (type == "red" and enemy_type == "green") or \
 		   (type == "green" and enemy_type == "blue") or \
 		   (type == "blue" and enemy_type == "red") or \
 		   (type == "yellow" and enemy_type == "purple") or \
 		   (type == "purple" and enemy_type == "yellow"):
 			elemental_multiplier = 2.0
-		elif (type == enemy_type) or \
-			 (type == "red" and enemy_type == "blue") or \
-			 (type == "green" and enemy_type == "red") or \
-			 (type == "blue" and enemy_type == "green"):
+			is_weakness = true
+		# 2. Resistance (0.5x)
+		elif (type == "green" and enemy_type == "red") or \
+			 (type == "blue" and enemy_type == "green") or \
+			 (type == "red" and enemy_type == "blue"):
 			elemental_multiplier = 0.5
+			is_resistance = true
+		# Else remains 1.0 (Normal)
 			
 	var size_multiplier = 1.0
 	if match_count == 4: size_multiplier = 1.5
 	elif match_count >= 5: size_multiplier = 2.0
 		
-	var combo_multiplier = 1.0
-	if combo_count > 0: combo_multiplier = 1.0 + (combo_count * 0.1)
+	var combo_multiplier = 1.0 + (combo_count * 0.1)
 		
 	var final_damage = int(amount * base_multiplier * elemental_multiplier * size_multiplier * combo_multiplier)
 	
@@ -215,8 +238,35 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	enemy.take_damage(final_damage, type)
 	distribute_mana(type, match_count)
 	
+	# Visuals
 	var text_content = str(final_damage)
-	spawn_status_text(text_content, Color.WHITE, enemy.global_position)
+	var text_color = _get_element_color_value(type) # Default to Element Color
+	var text_scale = 1.0
+	
+	if is_weakness:
+		text_content = "CRITICAL %s!" % text_content
+		text_color = Color.GOLD
+		text_scale = 1.5
+	elif is_resistance:
+		text_content = "RESIST %s" % text_content
+		text_color = Color.GRAY
+		text_scale = 0.8
+		
+	# Spawn Damage Text
+	spawn_status_text(text_content, text_color, enemy.global_position, text_scale)
+	
+	# FIX: Separate Combo Text Logic
+	if combo_count >= 1:
+		var combo_text = "COMBO x%d" % (combo_count + 1)
+		# Spawn at center of screen (approx) or offset
+		var center_pos = get_viewport_rect().get_center() + Vector2(0, -200)
+		spawn_status_text(combo_text, Color.GOLD, center_pos, 1.3)
+		
+	# NEW: Match Quality Flavor Text
+	if match_count == 4:
+		spawn_status_text("GREAT!", Color.CYAN, get_viewport_rect().get_center() + Vector2(0, -350), 1.5)
+	elif match_count >= 5:
+		spawn_status_text("LEGENDARY!", Color.VIOLET, get_viewport_rect().get_center() + Vector2(0, -350), 2.0)
 	
 	current_score += final_damage
 	Audio.play_sfx("playerAttack")
@@ -241,14 +291,46 @@ func _get_element_color(text: String) -> String:
 		"dark": return "purple"
 		_: return text.to_lower() 
 
+func _get_element_color_value(type: String) -> Color:
+	match type:
+		"red": return Color(1.0, 0.3, 0.3)
+		"blue": return Color(0.3, 0.6, 1.0)
+		"green": return Color(0.4, 0.8, 0.4)
+		"yellow": return Color(1.0, 1.0, 0.4)
+		"purple": return Color(0.7, 0.4, 1.0)
+		_: return Color(0.9, 0.9, 0.9)
+
 func spawn_status_text(text: String, color: Color, location: Vector2, text_scale: float = 1.0) -> void:
 	if not floating_text_scene: return
 	var ft = floating_text_scene.instantiate()
 	add_child(ft)
-	ft.global_position = location + Vector2(0, -50)
-	ft.scale = Vector2(text_scale, text_scale)
+	# JITTER: Prevent overlap for simultaneous texts
+	var jitter = Vector2(randf_range(-60, 60), randf_range(-60, 60))
+	ft.global_position = location + Vector2(0, -50) + jitter
+	
+	# POP ANIMATION
+	ft.scale = Vector2.ZERO
+	var target_scale = Vector2(text_scale, text_scale)
+	var tween = create_tween()
+	tween.tween_property(ft, "scale", target_scale * 1.5, 0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ft, "scale", target_scale, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	
 	if ft.has_method("start_animation"):
 		ft.start_animation(text, color)
+		
+func shake_screen(intensity: float, duration: float) -> void:
+	if not camera: return
+	
+	var original_offset = camera.offset
+	var tween = create_tween()
+	var loops = int(duration * 20)
+	
+	for i in range(loops):
+		var rand_x = randf_range(-intensity, intensity)
+		var rand_y = randf_range(-intensity, intensity)
+		tween.tween_property(camera, "offset", original_offset + Vector2(rand_x, rand_y), 0.05)
+		
+	tween.tween_property(camera, "offset", original_offset, 0.05)
 		
 func _on_mana_gained(amount: int, color_type: String) -> void:
 	pass
@@ -265,13 +347,20 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	match type:
 		CharacterData.SkillType.DIRECT_DAMAGE:
 			enemy.take_damage(final_power, "magic")
-			spawn_status_text("SKILL!", Color.RED, enemy.global_position)
+			# Use hero element color if possible, or red default
+			var color = Color.RED
+			if hero_data.element_text:
+				var elem = _get_element_color(hero_data.element_text)
+				color = _get_element_color_value(elem)
+			spawn_status_text("SKILL!\n%d" % final_power, color, enemy.global_position, 1.2)
+			
 		CharacterData.SkillType.HEAL:
 			heal_player(final_power)
-			spawn_status_text("HEAL +%d" % final_power, Color.GREEN, ui_layer.offset + Vector2(200, 400))
+			spawn_status_text("HEAL +%d" % final_power, Color.GREEN, ui_layer.offset + Vector2(200, 400), 1.2)
+			
 		CharacterData.SkillType.BUFF_ATTACK:
 			buff_remaining_turns = 3
-			spawn_status_text("RAGE MODE!", Color.YELLOW, ui_layer.offset + Vector2(200, 400))
+			spawn_status_text("RAGE MODE!", Color.YELLOW, ui_layer.offset + Vector2(200, 400), 1.2)
 
 func _on_enemy_died() -> void:
 	is_level_transitioning = true
@@ -285,7 +374,11 @@ func _on_enemy_died() -> void:
 	gold_earned_this_session += gold_reward
 	GameEconomy.add_gold(gold_reward) 
 	
-	current_level += 1
+	# PROGRESSION UPDATE
+	GameEconomy.complete_current_level()
+	# GameEconomy incremented map_level, so we update local too
+	current_level = GameEconomy.current_map_level
+	
 	_save_current_battle_state() 
 	
 	board_manager.is_processing_move = true 
@@ -306,9 +399,11 @@ func spawn_next_enemy() -> void:
 		new_enemy.max_hp *= 3
 		current_enemy_damage = int(current_enemy_damage * 1.5)
 		new_enemy.current_hp = new_enemy.max_hp
-		new_enemy.update_ui()
 		new_enemy.scale = Vector2(1.5, 1.5)
 	
+	# FIX: Force UI update here to ensure Max HP is correct, especially for bosses
+	new_enemy.update_ui()
+			
 	var types = ["red", "blue", "green", "yellow", "purple"]
 	var random_type = types.pick_random()
 	new_enemy.setup_element(random_type)

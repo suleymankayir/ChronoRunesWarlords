@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://crnsce80w6oql"]
+[gd_scene load_steps=9 format=3 uid="uid://crnsce80w6oql"]
 
 [ext_resource type="Script" uid="uid://t83jda6b5uml" path="res://00_Game/Scripts/MainMenu.gd" id="1_gs0eq"]
+[ext_resource type="PackedScene" uid="uid://d10sagcqu6ml0" path="res://00_Game/Scenes/MapScene.tscn" id="2_trgxq"]
 [ext_resource type="PackedScene" uid="uid://blcb0s75kivd7" path="res://00_Game/Scenes/SummonUI.tscn" id="2_y6tj7"]
 [ext_resource type="PackedScene" uid="uid://cmd50b3yqkodr" path="res://00_Game/Scenes/CollectionUI.tscn" id="3_trgxq"]
 [ext_resource type="PackedScene" uid="uid://xi1c6bodijdj" path="res://00_Game/Scenes/CurrencyDisplay.tscn" id="5_trgxq"]
@@ -28,6 +29,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_gs0eq")
 btn_collection = NodePath("VBoxContainer/BtnCollection")
+map_scene = ExtResource("2_trgxq")
 summon_scene = ExtResource("2_y6tj7")
 collection_scene = ExtResource("3_trgxq")
 

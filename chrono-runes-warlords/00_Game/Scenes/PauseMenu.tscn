@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://bispbtnodtp7u"]
+[gd_scene load_steps=3 format=3 uid="uid://bispbtnodtp7u"]
 
 [ext_resource type="Script" uid="uid://01oth0pnjsux" path="res://00_Game/Scripts/PauseMenu.gd" id="1_r871c"]
+[ext_resource type="PackedScene" uid="uid://cr36mv0jvfepd" path="res://00_Game/Scenes/SettingsPopup.tscn" id="2_qv38t"]
 
 [node name="PauseMenu" type="Control"]
 process_mode = 3
@@ -11,6 +12,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_r871c")
+settings_popup_scene = ExtResource("2_qv38t")
 
 [node name="ColorRect" type="ColorRect" parent="."]
 layout_mode = 1
@@ -40,6 +42,10 @@ theme_override_constants/separation = 12
 [node name="ResumeButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
 text = "DEVAM ET"
+
+[node name="SettingsButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "AYARLAR"
 
 [node name="QuitButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2

@@ -4,7 +4,7 @@ class_name MainMenu extends Control
 @onready var summon_button: Button = $VBoxContainer/SummonButton
 @export var btn_collection: Button
 @onready var quit_button: Button = $VBoxContainer/QuitButton
-
+@export var map_scene: PackedScene 
 @export var summon_scene: PackedScene
 @export var collection_scene: PackedScene
 
@@ -43,7 +43,10 @@ func _on_start_pressed() -> void:
 	if not has_save_file:
 		GameEconomy.start_new_game()
 	
-	get_tree().change_scene_to_file("res://00_Game/Scenes/MainGame.tscn")
+	if map_scene:
+		get_tree().change_scene_to_packed(map_scene)
+	else:
+		print("⚠️ HATA: MainMenu Inspector'ında 'Map Scene' boş bırakılmış!")
 
 func _on_summon_button_pressed() -> void:
 	Audio.play_sfx("swap")

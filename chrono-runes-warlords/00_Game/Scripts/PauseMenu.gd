@@ -4,7 +4,10 @@ signal resume_requested
 signal quit_requested
 
 @onready var resume_btn: Button = $VBoxContainer/ResumeButton
+@onready var settings_btn: Button = $VBoxContainer/SettingsButton
 @onready var quit_btn: Button = $VBoxContainer/QuitButton
+
+@export var settings_popup_scene: PackedScene
 
 func _ready() -> void:
 	# CRITICAL: Always process.
@@ -13,12 +16,22 @@ func _ready() -> void:
 	# Basic Input Validation
 	if resume_btn:
 		resume_btn.pressed.connect(_on_resume_pressed)
+	if settings_btn:
+		settings_btn.pressed.connect(_on_settings_pressed)
 	if quit_btn:
 		quit_btn.pressed.connect(_on_quit_pressed)
 
 func _on_resume_pressed() -> void:
 	_unpause_and_close()
 	resume_requested.emit()
+
+func _on_settings_pressed() -> void:
+	if settings_popup_scene:
+		var popup = settings_popup_scene.instantiate()
+		# Ensure popup works while paused
+		popup.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(popup)
+
 
 func _on_quit_pressed() -> void:
 	# Unpause first to allow main game to save/process scene change

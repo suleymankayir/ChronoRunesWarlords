@@ -21,6 +21,10 @@ var high_score: int = 0
 var battle_state: Dictionary = {} # STORE BATTLE STATE HERE
 var character_db: Dictionary = {}
 
+# --- NEW VARIABLES ---
+var max_unlocked_level: int = 1
+var current_map_level: int = 1
+
 func _ready() -> void:
 	_load_character_database()
 	if FileAccess.file_exists(SAVE_PATH):
@@ -36,6 +40,8 @@ func start_new_game() -> void:
 	selected_team_ids = ["hero_fire", "hero_water", "hero_earth"]
 	hero_levels = {} 
 	battle_state = {}
+	max_unlocked_level = 1
+	current_map_level = 1
 	
 	# Initialize levels for owned heroes
 	for h in owned_heroes:
@@ -58,7 +64,8 @@ func save_game() -> void:
 		"selected_team_ids": selected_team_ids,
 		"hero_levels": hero_levels,
 		"high_score": high_score,
-		"battle_state": battle_state
+		"battle_state": battle_state,
+		"max_unlocked_level": max_unlocked_level
 	}
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -79,6 +86,7 @@ func load_game() -> bool:
 				gold = int(data.get("gold", 0))
 				gems = int(data.get("gems", 0))
 				high_score = int(data.get("high_score", 0))
+				max_unlocked_level = int(data.get("max_unlocked_level", 1))
 				
 				var loaded_heroes = data.get("owned_heroes", [])
 				if typeof(loaded_heroes) == TYPE_ARRAY:
@@ -107,6 +115,20 @@ func load_game() -> bool:
 				return true
 		file.close()
 	return false
+
+func complete_current_level() -> void:
+	# Progression Logic
+	if current_map_level == max_unlocked_level:
+		max_unlocked_level += 1
+		save_game()
+	
+	current_map_level += 1
+
+func start_level_from_map(level_id: int) -> void:
+	current_map_level = level_id
+	clear_battle_state()
+	save_game()
+
 
 func _load_character_database() -> void:
 	var path = "res://00_Game/Resources/Characters/"
