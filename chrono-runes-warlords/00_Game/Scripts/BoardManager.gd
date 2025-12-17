@@ -252,17 +252,21 @@ func destroy_matched_pieces() -> void:
 			if all_pieces[x][y] != null and all_pieces[x][y].matched and not visited_mask[x][y]:
 				# Found a new cluster
 				was_match_found = true
+				
+				# CRITICAL: Increment combo per cluster found
+				current_combo += 1
+				
 				var cluster = get_match_cluster(x, y, visited_mask)
 				
 				# Process this specific cluster
 				if not cluster.is_empty():
 					var type = cluster[0].type
-					var count = cluster.size()
-					var damage_amount = count * 10
+					var list_size = cluster.size()
+					var damage_amount = list_size * 10
 					
-					# Emit EXACTLY for this cluster
-					damage_dealt.emit(damage_amount, type, count, current_combo)
-					mana_gained.emit(count * 5, type) # Adjusted mana gain logic slightly per cluster
+					# Emit EXACTLY for this cluster with the current sequential combo ID
+					damage_dealt.emit(damage_amount, type, list_size, current_combo)
+					mana_gained.emit(list_size * 5, type)
 					
 					# Destroy pieces in this cluster
 					for piece in cluster:
@@ -279,6 +283,7 @@ func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array
 	var queue: Array[Vector2i] = [Vector2i(start_x, start_y)]
 	var target_type = all_pieces[start_x][start_y].type
 	
+	# Mark start as visited immediately to prevent re-queueing
 	visited_mask[start_x][start_y] = true
 	
 	while not queue.is_empty():
@@ -287,23 +292,23 @@ func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array
 		var y = current_pos.y
 		var piece = all_pieces[x][y]
 		
-		# Validation (Existence + Match Status + Type)
+		# Confirm it's a valid piece for this cluster
 		if piece and piece.matched and piece.type == target_type:
 			cluster.append(piece)
 			
-			# Check Neighbors (Up, Down, Left, Right)
+			# Check 4-connected neighbors
 			var neighbors = [
 				Vector2i(x + 1, y), Vector2i(x - 1, y),
 				Vector2i(x, y + 1), Vector2i(x, y - 1)
 			]
 			
 			for n in neighbors:
+				# Bounds check
 				if n.x >= 0 and n.x < width and n.y >= 0 and n.y < height:
+					# Check if valid, unvisited, matched, and same type
 					if not visited_mask[n.x][n.y] and all_pieces[n.x][n.y] != null:
-						# Only add to queue if it matches criteria TO BE VISITED
-						# Optimistic check here saves queue size
 						if all_pieces[n.x][n.y].matched and all_pieces[n.x][n.y].type == target_type:
-							visited_mask[n.x][n.y] = true
+							visited_mask[n.x][n.y] = true # Mark visited when adding to queue
 							queue.append(n)
 							
 	return cluster
@@ -376,7 +381,6 @@ func refill_board() -> void:
 	await tween.finished
 	
 	if find_matches():
-		current_combo += 1
 		destroy_matched_pieces()
 	else:
 		_check_for_deadlock_and_finish()

@@ -32,6 +32,8 @@ var current_score: int = 0
 
 var leader_data: CharacterData
 var buff_remaining_turns: int = 0 
+var active_buff_multiplier: float = 1.0 
+var current_wave: int = 1 # Added for Suspend/Resume tracking 
 
 func _ready() -> void:
 	if Audio.bg_music:
@@ -49,7 +51,7 @@ func _ready() -> void:
 	board_manager.mana_gained.connect(_on_mana_gained)
 	
 	# BATTLE PERSISTENCE CHECK
-	if GameEconomy.has_saved_battle():
+	if GameEconomy.has_active_battle():
 		print(">>> RESUMING SAVED BATTLE STATE...")
 		_load_battle_state()
 	else:
@@ -95,6 +97,7 @@ func show_pause_menu() -> void:
 	get_tree().paused = true
 
 func _on_pause_quit() -> void:
+	# SUSPEND SESSION: Save state so we can resume (unless team changes)
 	_save_current_battle_state()
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
@@ -106,8 +109,9 @@ func _setup_battle_heroes() -> void:
 	var leader_id = GameEconomy.get_team_leader_id()
 	
 	var saved_mana = {}
-	if GameEconomy.has_saved_battle() and GameEconomy.battle_state.has("heroes_mana"):
-		saved_mana = GameEconomy.battle_state["heroes_mana"]
+	
+	if GameEconomy.has_active_battle() and GameEconomy.active_battle_snapshot.has("heroes_mana"):
+		saved_mana = GameEconomy.active_battle_snapshot["heroes_mana"]
 	
 	for hero_id in team_ids:
 		var data = GameEconomy.get_character_data(hero_id)
@@ -153,7 +157,7 @@ func take_player_damage(amount: int) -> void:
 	shake_screen(5.0, 0.3)
 	
 	if player_current_hp <= 0:
-		GameEconomy.clear_battle_state() 
+		GameEconomy.clear_battle_snapshot() 
 		game_over(false)
 
 func game_over(is_victory: bool) -> void:
@@ -165,15 +169,18 @@ func game_over(is_victory: bool) -> void:
 	GameEconomy.check_new_high_score(current_score)
 	
 	if not is_victory:
-		GameEconomy.clear_battle_state()
+		GameEconomy.clear_battle_snapshot()
 	else:
 		# If you want to keep state for subsequent wins until boss is done, logic goes here.
 		# For now, we clear it here OR in _on_enemy_died. 
 		# But usually on GAME OVER (win/loss screen), we might want to clear.
 		# However, existing logic clears in _on_enemy_died before moving to next level IF it's a win.
-		# Wait, actually GameEconomy.clear_battle_state() was already there.
+		# Wait, actually GameEconomy.clear_battle_snapshot() was already there.
 		# THE CRITICAL FIX is ensuring it clears on LOSS.
-		GameEconomy.clear_battle_state()
+		# THE CRITICAL FIX is ensuring it clears on LOSS.
+		GameEconomy.clear_battle_snapshot()
+		# Explicit Save on Game Over
+		GameEconomy.save_game()
 
 	
 	var popup = game_over_scene.instantiate()
@@ -185,7 +192,7 @@ func game_over(is_victory: bool) -> void:
 
 func _on_restart_game() -> void:
 	# FIX: Clear state before reloading to prevent "Zombie Loop"
-	GameEconomy.clear_battle_state()
+	GameEconomy.clear_battle_snapshot()
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 		
@@ -198,71 +205,64 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	if is_level_transitioning: return
 	if not is_instance_valid(enemy): return
 	
-	var team_level = GameEconomy.get_team_total_level()
-	var base_multiplier = 1.0 + (team_level * 0.1) 
-	var elemental_multiplier = 1.0
-	var is_weakness = false
-	var is_resistance = false
+	# --- 1. FETCH HERO ATTACK ---
+	var hero_attack = GameEconomy.get_hero_attack(type)
 	
+	var enemy_elem = ""
 	if enemy.get("element_type"):
-		var enemy_type = enemy.element_type
-		# Elemental Matrix - STRICT STATELESS CALCULATION
-		# 1. Weakness (2.0x)
-		if (type == "red" and enemy_type == "green") or \
-		   (type == "green" and enemy_type == "blue") or \
-		   (type == "blue" and enemy_type == "red") or \
-		   (type == "yellow" and enemy_type == "purple") or \
-		   (type == "purple" and enemy_type == "yellow"):
-			elemental_multiplier = 2.0
-			is_weakness = true
-		# 2. Resistance (0.5x)
-		elif (type == "green" and enemy_type == "red") or \
-			 (type == "blue" and enemy_type == "green") or \
-			 (type == "red" and enemy_type == "blue"):
-			elemental_multiplier = 0.5
-			is_resistance = true
-		# Else remains 1.0 (Normal)
-			
-	var size_multiplier = 1.0
-	if match_count == 4: size_multiplier = 1.5
-	elif match_count >= 5: size_multiplier = 2.0
+		enemy_elem = enemy.element_type
 		
-	var combo_multiplier = 1.0 + (combo_count * 0.1)
-		
-	var final_damage = int(amount * base_multiplier * elemental_multiplier * size_multiplier * combo_multiplier)
+	# --- 2. CALCULATE ---
+	var final_damage = CombatMath.calculate_damage(
+		amount,
+		type,
+		enemy_elem,
+		match_count,
+		combo_count,
+		hero_attack,
+		active_buff_multiplier
+	)
 	
 	if buff_remaining_turns > 0:
-		final_damage = int(final_damage * 1.5)
 		buff_remaining_turns -= 1
+		if buff_remaining_turns <= 0:
+			active_buff_multiplier = 1.0
 
 	enemy.take_damage(final_damage, type)
 	distribute_mana(type, match_count)
 	
-	# Visuals
+	# --- 3. VISUALS ---
+	var elemental_mult = CombatMath.get_elemental_multiplier(type, enemy_elem)
+	var is_critical = elemental_mult > 1.5
+	var is_resisted = elemental_mult < 0.9
+	
 	var text_content = str(final_damage)
-	var text_color = _get_element_color_value(type) # Default to Element Color
+	var text_color = CombatMath.get_damage_color(type, is_critical, is_resisted)
 	var text_scale = 1.0
 	
-	if is_weakness:
+	if is_critical:
 		text_content = "CRITICAL %s!" % text_content
-		text_color = Color.GOLD
 		text_scale = 1.5
-	elif is_resistance:
+	elif is_resisted:
 		text_content = "RESIST %s" % text_content
-		text_color = Color.GRAY
 		text_scale = 0.8
+		
+	if active_buff_multiplier > 1.0:
+		text_content += "\nBUFFED"
+		text_scale *= 1.2
+		text_color = text_color.lightened(0.3)
 		
 	# Spawn Damage Text
 	spawn_status_text(text_content, text_color, enemy.global_position, text_scale)
 	
-	# FIX: Separate Combo Text Logic
-	if combo_count >= 1:
-		var combo_text = "COMBO x%d" % (combo_count + 1)
-		# Spawn at center of screen (approx) or offset
+	# Combo Text
+	if combo_count > 1:
+		var combo_text = "COMBO x%d" % combo_count
 		var center_pos = get_viewport_rect().get_center() + Vector2(0, -200)
-		spawn_status_text(combo_text, Color.GOLD, center_pos, 1.3)
+		var combo_jitter = Vector2(randf_range(-40, 40), randf_range(-40, 40))
+		spawn_status_text(combo_text, Color.GOLD, center_pos + combo_jitter, 1.3)
 		
-	# NEW: Match Quality Flavor Text
+	# Match Quality Text
 	if match_count == 4:
 		spawn_status_text("GREAT!", Color.CYAN, get_viewport_rect().get_center() + Vector2(0, -350), 1.5)
 	elif match_count >= 5:
@@ -305,7 +305,7 @@ func spawn_status_text(text: String, color: Color, location: Vector2, text_scale
 	var ft = floating_text_scene.instantiate()
 	add_child(ft)
 	# JITTER: Prevent overlap for simultaneous texts
-	var jitter = Vector2(randf_range(-60, 60), randf_range(-60, 60))
+	var jitter = Vector2(randf_range(-40, 40), randf_range(-40, 40))
 	ft.global_position = location + Vector2(0, -50) + jitter
 	
 	# POP ANIMATION
@@ -340,27 +340,48 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	if not is_instance_valid(enemy): return
 	
 	Audio.play_sfx("combo", 0.5)
-	var type = hero_data.skill_type
-	var level = GameEconomy.get_hero_level(hero_data.id)
-	var final_power = int(hero_data.skill_power * (1.0 + ((level - 1) * 0.2)))
 	
-	match type:
+	var hero_level = GameEconomy.get_hero_level(hero_data.id)
+	
+	match hero_data.skill_type:
 		CharacterData.SkillType.DIRECT_DAMAGE:
+			# Power Calculation
+			var final_power = GameEconomy.get_hero_skill_power(hero_data.id)
+			
+			# Buff Application
+			var is_buffed = false
+			if buff_remaining_turns > 0:
+				final_power = int(final_power * active_buff_multiplier)
+				buff_remaining_turns -= 1
+				is_buffed = true
+				if buff_remaining_turns <= 0:
+					active_buff_multiplier = 1.0
+			
 			enemy.take_damage(final_power, "magic")
-			# Use hero element color if possible, or red default
+			
+			# Visuals
 			var color = Color.RED
 			if hero_data.element_text:
 				var elem = _get_element_color(hero_data.element_text)
 				color = _get_element_color_value(elem)
-			spawn_status_text("SKILL!\n%d" % final_power, color, enemy.global_position, 1.2)
+			
+			var text = "SKILL!\n%d" % final_power
+			if is_buffed:
+				text += "\nBUFFED"
+				
+			spawn_status_text(text, color, enemy.global_position, 1.2)
 			
 		CharacterData.SkillType.HEAL:
-			heal_player(final_power)
-			spawn_status_text("HEAL +%d" % final_power, Color.GREEN, ui_layer.offset + Vector2(200, 400), 1.2)
+			# Scalable Heal: 200 Base + 30 per Level
+			var heal_amount = 200 + (hero_level * 30)
+			heal_player(heal_amount)
+			spawn_status_text("HEAL +%d" % heal_amount, Color.GREEN, ui_layer.offset + Vector2(200, 400), 1.2)
 			
 		CharacterData.SkillType.BUFF_ATTACK:
-			buff_remaining_turns = 3
-			spawn_status_text("RAGE MODE!", Color.YELLOW, ui_layer.offset + Vector2(200, 400), 1.2)
+			# Scalable Buff: 1.2 Base + 0.05 per Level
+			active_buff_multiplier = 1.2 + (float(hero_level) * 0.05)
+			buff_remaining_turns = 5
+			spawn_status_text("DAMAGE UP!\nx%.2f" % active_buff_multiplier, Color.GOLD, ui_layer.offset + Vector2(200, 400), 1.2)
 
 func _on_enemy_died() -> void:
 	is_level_transitioning = true
@@ -376,6 +397,9 @@ func _on_enemy_died() -> void:
 	
 	# PROGRESSION UPDATE
 	GameEconomy.complete_current_level()
+	# Explicit Save on Win (Major Event)
+	GameEconomy.save_game()
+	
 	# GameEconomy incremented map_level, so we update local too
 	current_level = GameEconomy.current_map_level
 	
@@ -446,6 +470,7 @@ func _save_current_battle_state() -> void:
 		
 	var data = {
 		"level": current_level,
+		"wave": current_wave,
 		"player_hp": player_current_hp,
 		"score": current_score,
 		"enemy_hp": enemy_hp,
@@ -453,11 +478,12 @@ func _save_current_battle_state() -> void:
 		"board": board_manager.get_board_data(),
 		"heroes_mana": heroes_mana
 	}
-	GameEconomy.save_battle_state(data)
+	GameEconomy.save_battle_snapshot(data)
 
 func _load_battle_state() -> void:
-	var data = GameEconomy.battle_state
+	var data = GameEconomy.get_battle_snapshot()
 	current_level = data.get("level", 1)
+	current_wave = data.get("wave", 1)
 	player_current_hp = data.get("player_hp", player_max_hp)
 	current_score = data.get("score", 0)
 	

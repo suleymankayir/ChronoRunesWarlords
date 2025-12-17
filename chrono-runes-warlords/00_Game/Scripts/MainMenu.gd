@@ -42,6 +42,11 @@ func _on_start_pressed() -> void:
 	
 	if not has_save_file:
 		GameEconomy.start_new_game()
+		
+	# LOGIC: If a battle is suspended, resume it immediately.
+	if GameEconomy.has_active_battle():
+		get_tree().change_scene_to_file("res://00_Game/Scenes/MainGame.tscn")
+		return
 	
 	if map_scene:
 		get_tree().change_scene_to_packed(map_scene)

@@ -18,7 +18,7 @@ var owned_heroes: Array = []
 var selected_team_ids: Array = []
 var hero_levels: Dictionary = {} 
 var high_score: int = 0
-var battle_state: Dictionary = {} # STORE BATTLE STATE HERE
+var active_battle_snapshot: Dictionary = {} # STORE BATTLE STATE HERE
 var character_db: Dictionary = {}
 
 # --- NEW VARIABLES ---
@@ -39,7 +39,7 @@ func start_new_game() -> void:
 	owned_heroes = ["hero_fire", "hero_water", "hero_earth"]
 	selected_team_ids = ["hero_fire", "hero_water", "hero_earth"]
 	hero_levels = {} 
-	battle_state = {}
+	active_battle_snapshot = {}
 	max_unlocked_level = 1
 	current_map_level = 1
 	
@@ -64,7 +64,8 @@ func save_game() -> void:
 		"selected_team_ids": selected_team_ids,
 		"hero_levels": hero_levels,
 		"high_score": high_score,
-		"battle_state": battle_state,
+
+		"battle_state": active_battle_snapshot,
 		"max_unlocked_level": max_unlocked_level
 	}
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -103,7 +104,7 @@ func load_game() -> bool:
 					
 				var loaded_battle = data.get("battle_state", {})
 				if typeof(loaded_battle) == TYPE_DICTIONARY:
-					battle_state = loaded_battle
+					active_battle_snapshot = loaded_battle
 
 				# Emit Signals
 				gold_updated.emit(gold)
@@ -120,14 +121,18 @@ func complete_current_level() -> void:
 	# Progression Logic
 	if current_map_level == max_unlocked_level:
 		max_unlocked_level += 1
-		save_game()
+		# Save handled by caller or auto-save
 	
 	current_map_level += 1
 
 func start_level_from_map(level_id: int) -> void:
 	current_map_level = level_id
-	clear_battle_state()
+	clear_battle_snapshot()
 	save_game()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+		save_game()
 
 
 func _load_character_database() -> void:
@@ -148,16 +153,25 @@ func get_character_data(id: String) -> CharacterData:
 
 # --- BATTLE PERSISTENCE ---
 
-func save_battle_state(data: Dictionary) -> void:
-	battle_state = data
-	save_game()
+func save_battle_snapshot(data: Dictionary) -> void:
+	active_battle_snapshot = data
+	# save_game() - Removed for optimization, handled by auto-save or explicit save
 
-func clear_battle_state() -> void:
-	battle_state = {}
-	save_game()
+func clear_battle_snapshot() -> void:
+	active_battle_snapshot = {}
+	# save_game() - Removed for optimization
 	
-func has_saved_battle() -> bool:
-	return not battle_state.is_empty()
+func has_active_battle() -> bool:
+	return not active_battle_snapshot.is_empty()
+
+func get_battle_snapshot() -> Dictionary:
+	return active_battle_snapshot
+	
+func reset_battle_state() -> void:
+	# Keep for legacy calls/hard resets
+	current_map_level = 1
+	active_battle_snapshot = {}
+	save_game()
 
 # --- HELPER FUNCTIONS ---
 
@@ -168,25 +182,21 @@ func spend_gold(amount: int) -> bool:
 	if gold >= amount:
 		gold -= amount
 		gold_updated.emit(gold)
-		save_game()
 		return true
 	return false
 
 func add_gold(amount: int) -> void:
 	gold += amount
 	gold_updated.emit(gold)
-	save_game()
 
 func add_gems(amount: int) -> void:
 	gems += amount
 	gems_updated.emit(gems)
-	save_game()
 
 func spend_gems(amount: int) -> bool:
 	if gems >= amount:
 		gems -= amount
 		gems_updated.emit(gems)
-		save_game()
 		return true
 	return false
 
@@ -200,7 +210,6 @@ func add_hero(hero_data: CharacterData) -> int:
 	owned_heroes.append(hero_data.id)
 	hero_levels[hero_data.id] = 1 # Init level 1
 	inventory_updated.emit()
-	save_game()
 	return 0
 
 func unlock_character(hero_data: CharacterData) -> void:
@@ -224,7 +233,6 @@ func get_team_leader_id() -> String:
 func save_hero_level(id: String, level: int) -> void:
 	hero_levels[id] = level
 	inventory_updated.emit()
-	save_game()
 
 func get_hero_level(id: String) -> int:
 	return hero_levels.get(id, 1) # Default to 1 if not found
@@ -235,17 +243,47 @@ func check_new_high_score(score: int) -> void:
 	if score > high_score:
 		high_score = score
 		high_score_updated.emit(high_score)
-		save_game()
 
 func toggle_hero_selection(hero_id: String) -> void:
+	# CRITICAL: Changing team resets any suspended battle
+	clear_battle_snapshot()
+	
 	if hero_id in selected_team_ids:
 		selected_team_ids.erase(hero_id)
 		team_updated.emit()
-		save_game()
 	elif selected_team_ids.size() < MAX_TEAM_SIZE and hero_id in owned_heroes:
 		selected_team_ids.append(hero_id)
 		team_updated.emit()
-		save_game()
 
 func is_hero_selected(hero_id: String) -> bool:
 	return hero_id in selected_team_ids
+
+# --- INDIVIDUAL HERO STATS ---
+
+func get_hero_attack(damage_type: String) -> int:
+	for hero_id in selected_team_ids:
+		var data = get_character_data(hero_id)
+		if data:
+			# Convert data.element_text (e.g. "Fire") to "red" format if needed
+			# Quick normalization mapping
+			var elem = data.element_text.to_lower()
+			var mapped_color = elem
+			match elem:
+				"fire": mapped_color = "red"
+				"water": mapped_color = "blue"
+				"earth", "nature": mapped_color = "green"
+				"light": mapped_color = "yellow"
+				"dark": mapped_color = "purple"
+			
+			if mapped_color == damage_type:
+				var level = get_hero_level(hero_id)
+				# Formula: Base 10 + (Level * 3)
+				return 10 + (level * 3)
+	return 0
+
+func get_hero_skill_power(hero_id: String) -> int:
+	if hero_id in owned_heroes:
+		var level = get_hero_level(hero_id)
+		# Formula: Base 50 + (Level * 25)
+		return 50 + (level * 25)
+	return 50 # Fallback base

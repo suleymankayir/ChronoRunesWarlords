@@ -8,5 +8,6 @@ script = ExtResource("2_enkhu")
 id = "hero_earth"
 character_name = "Alice"
 portrait = ExtResource("1_1gq0h")
+element_text = "Nature"
 skill_name = "Earth Arrow"
 metadata/_custom_type_script = "uid://chd0do1hdflc"
