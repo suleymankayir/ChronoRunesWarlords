@@ -34,7 +34,7 @@ func _ready() -> void:
 			btn.pressed.connect(_on_level_button_pressed.bind(i))
 		else:
 			btn.disabled = true
-			btn.modulate = Color(0.5, 0.5, 0.5, 1) # Greyed out (Visual feedback)
+			btn.modulate = Color(0.3, 0.3, 0.3, 0.8) # Locked (Dark Grey)
 
 func _on_level_button_pressed(level: int) -> void:
 	GameEconomy.start_level_from_map(level)

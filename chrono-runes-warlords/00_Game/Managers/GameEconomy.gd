@@ -159,7 +159,7 @@ func save_battle_snapshot(data: Dictionary) -> void:
 
 func clear_battle_snapshot() -> void:
 	active_battle_snapshot = {}
-	# save_game() - Removed for optimization
+	save_game() # FIX: Immediate save to prevent "Zombie State" on restart
 	
 func has_active_battle() -> bool:
 	return not active_battle_snapshot.is_empty()
@@ -182,12 +182,14 @@ func spend_gold(amount: int) -> bool:
 	if gold >= amount:
 		gold -= amount
 		gold_updated.emit(gold)
+		save_game() # FIX: Save immediately
 		return true
 	return false
 
 func add_gold(amount: int) -> void:
 	gold += amount
 	gold_updated.emit(gold)
+	save_game() # FIX: Save immediately
 
 func add_gems(amount: int) -> void:
 	gems += amount
@@ -233,6 +235,7 @@ func get_team_leader_id() -> String:
 func save_hero_level(id: String, level: int) -> void:
 	hero_levels[id] = level
 	inventory_updated.emit()
+	save_game() # FIX: Save immediately
 
 func get_hero_level(id: String) -> int:
 	return hero_levels.get(id, 1) # Default to 1 if not found

@@ -45,10 +45,10 @@ func _on_start_pressed() -> void:
 		
 	# LOGIC: If a battle is suspended, resume it immediately.
 	if GameEconomy.has_active_battle():
+		print(">>> Resuming Active Battle")
 		get_tree().change_scene_to_file("res://00_Game/Scenes/MainGame.tscn")
-		return
-	
-	if map_scene:
+	elif map_scene:
+		print(">>> No Active Battle, Going to Map")
 		get_tree().change_scene_to_packed(map_scene)
 	else:
 		print("⚠️ HATA: MainMenu Inspector'ında 'Map Scene' boş bırakılmış!")

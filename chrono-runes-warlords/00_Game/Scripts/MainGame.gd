@@ -99,6 +99,7 @@ func show_pause_menu() -> void:
 func _on_pause_quit() -> void:
 	# SUSPEND SESSION: Save state so we can resume (unless team changes)
 	_save_current_battle_state()
+	GameEconomy.save_game() # FIX: Flush to disk immediately
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
 func _setup_battle_heroes() -> void:
@@ -205,24 +206,22 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	if is_level_transitioning: return
 	if not is_instance_valid(enemy): return
 	
-	# --- 1. FETCH HERO ATTACK ---
+	# 1. Get Stats & Info
 	var hero_attack = GameEconomy.get_hero_attack(type)
+	var enemy_elem = enemy.element_type if enemy.get("element_type") else ""
 	
-	var enemy_elem = ""
-	if enemy.get("element_type"):
-		enemy_elem = enemy.element_type
-		
-	# --- 2. CALCULATE ---
+	# 2. Calculate Final Damage
 	var final_damage = CombatMath.calculate_damage(
-		amount,
-		type,
-		enemy_elem,
-		match_count,
-		combo_count,
-		hero_attack,
+		amount, 
+		type, 
+		enemy_elem, 
+		match_count, 
+		combo_count, 
+		hero_attack, 
 		active_buff_multiplier
 	)
 	
+	# Handle Buff Expiry
 	if buff_remaining_turns > 0:
 		buff_remaining_turns -= 1
 		if buff_remaining_turns <= 0:
@@ -231,38 +230,36 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	enemy.take_damage(final_damage, type)
 	distribute_mana(type, match_count)
 	
-	# --- 3. VISUALS ---
-	var elemental_mult = CombatMath.get_elemental_multiplier(type, enemy_elem)
-	var is_critical = elemental_mult > 1.5
-	var is_resisted = elemental_mult < 0.9
+	# 3. Visuals (Text & Colors)
+	var elem_mult = CombatMath.get_elemental_multiplier(type, enemy_elem)
+	var is_crit = elem_mult > 1.0
+	var is_resist = elem_mult < 1.0
+	var text_color = CombatMath.get_damage_color(type, is_crit, is_resist)
 	
 	var text_content = str(final_damage)
-	var text_color = CombatMath.get_damage_color(type, is_critical, is_resisted)
 	var text_scale = 1.0
 	
-	if is_critical:
+	if is_crit:
 		text_content = "CRITICAL %s!" % text_content
 		text_scale = 1.5
-	elif is_resisted:
+	elif is_resist:
 		text_content = "RESIST %s" % text_content
 		text_scale = 0.8
 		
 	if active_buff_multiplier > 1.0:
 		text_content += "\nBUFFED"
 		text_scale *= 1.2
-		text_color = text_color.lightened(0.3)
 		
 	# Spawn Damage Text
 	spawn_status_text(text_content, text_color, enemy.global_position, text_scale)
 	
-	# Combo Text
+	# Combo & Match Context (Still keeping for gamefeel)
 	if combo_count > 1:
 		var combo_text = "COMBO x%d" % combo_count
 		var center_pos = get_viewport_rect().get_center() + Vector2(0, -200)
 		var combo_jitter = Vector2(randf_range(-40, 40), randf_range(-40, 40))
 		spawn_status_text(combo_text, Color.GOLD, center_pos + combo_jitter, 1.3)
 		
-	# Match Quality Text
 	if match_count == 4:
 		spawn_status_text("GREAT!", Color.CYAN, get_viewport_rect().get_center() + Vector2(0, -350), 1.5)
 	elif match_count >= 5:
@@ -419,12 +416,6 @@ func spawn_next_enemy() -> void:
 	
 	calculate_and_apply_enemy_stats(new_enemy)
 	
-	if current_level % 5 == 0:
-		new_enemy.max_hp *= 3
-		current_enemy_damage = int(current_enemy_damage * 1.5)
-		new_enemy.current_hp = new_enemy.max_hp
-		new_enemy.scale = Vector2(1.5, 1.5)
-	
 	# FIX: Force UI update here to ensure Max HP is correct, especially for bosses
 	new_enemy.update_ui()
 			
@@ -443,9 +434,22 @@ func spawn_next_enemy() -> void:
 	_save_current_battle_state()
 
 func calculate_and_apply_enemy_stats(target_enemy: Enemy) -> void:
-	var multiplier = 1.0 + ((current_level - 1) * 0.2)
+	# 1. Base Multiplier (Smoother Curve)
+	var multiplier = 1.0 + ((current_level - 1) * 0.15)
+	
+	# 2. Apply Base Stats
 	target_enemy.max_hp = int(base_enemy_hp * multiplier)
 	current_enemy_damage = int(base_enemy_damage * multiplier)
+	
+	# 3. Boss Check & Modifiers
+	if current_level % 5 == 0:
+		target_enemy.max_hp = int(target_enemy.max_hp * 2.5)
+		current_enemy_damage = int(current_enemy_damage * 1.3)
+		target_enemy.scale = Vector2(1.5, 1.5)
+	else:
+		target_enemy.scale = Vector2(1.0, 1.0)
+
+	# 4. Finalize
 	target_enemy.current_hp = target_enemy.max_hp
 	target_enemy.update_ui()
 
@@ -456,6 +460,10 @@ func heal_player(amount: int) -> void:
 # --- STATE SAVING & LOADING ---
 
 func _save_current_battle_state() -> void:
+	# FIX: Do not save state if player is dead (avoids "Zombie Loop")
+	if player_current_hp <= 0:
+		return
+		
 	var enemy_hp = 0
 	var enemy_elem = "red"
 	if is_instance_valid(enemy):
