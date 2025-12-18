@@ -29,6 +29,20 @@ func _ready() -> void:
 	_load_character_database()
 	if FileAccess.file_exists(SAVE_PATH):
 		load_game()
+		
+	# FORCE ADD FOR TESTING (Fix for old saves)
+	if not "hero_nature_druid" in owned_heroes:
+		owned_heroes.append("hero_nature_druid")
+		print("Force added hero_nature_druid to inventory")
+		
+	if not "hero_nature_druid" in selected_team_ids and selected_team_ids.size() < MAX_TEAM_SIZE:
+		selected_team_ids.append("hero_nature_druid")
+		print("Force added hero_nature_druid to team")
+	
+	# Explicitly ensure it's in the database if dynamic loading missed it (Fallback)
+	if not character_db.has("hero_nature_druid"):
+		var res = load("res://00_Game/Resources/Characters/hero_nature_druid.tres")
+		if res: character_db["hero_nature_druid"] = res
 
 func start_new_game() -> void:
 	print(">>> YENİ OYUN BAŞLATILIYOR (RAM + DISK)...")
@@ -36,8 +50,8 @@ func start_new_game() -> void:
 	# 1. Force Set RAM Variables First
 	gold = 200
 	gems = 50
-	owned_heroes = ["hero_fire", "hero_water", "hero_earth"]
-	selected_team_ids = ["hero_fire", "hero_water", "hero_earth"]
+	owned_heroes = ["hero_fire", "hero_light_mage", "hero_nature_druid"]
+	selected_team_ids = ["hero_fire", "hero_light_mage", "hero_nature_druid"]
 	hero_levels = {} 
 	active_battle_snapshot = {}
 	max_unlocked_level = 1

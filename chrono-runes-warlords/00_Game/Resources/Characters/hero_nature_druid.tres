@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://ctu6lnc44j5bl"]
+
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_8jpv6"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="1_66wo8"]
+
+[resource]
+script = ExtResource("1_66wo8")
+id = "hero_nature_druid"
+character_name = "Old Druid"
+portrait = ExtResource("1_8jpv6")
+element_text = "Nature"
+rarity = 1
+skill_type = 3
+skill_power = 0
+skill_name = "Time Freeze"
+metadata/_custom_type_script = "uid://chd0do1hdflc"

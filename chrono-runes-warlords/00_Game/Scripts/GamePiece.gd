@@ -12,8 +12,12 @@ var grid_position: Vector2i = Vector2i.ZERO
 var is_dragging: bool = false
 var start_touch_pos: Vector2 = Vector2.ZERO
 const DRAG_THRESHOLD: float = 32.0 # "Ölü Bölge" mesafesi (Piksel)
+var initial_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
+	# Store the initial scale for juice calculations
+	initial_scale = $Sprite2D.scale
+	
 	# Area2D'nin kendi sinyalini kendine bağla
 	# Bu, parçanın üzerine tıklandığını algılar.
 	input_event.connect(_on_input_event)
@@ -57,17 +61,26 @@ func _start_drag(pos: Vector2) -> void:
 	piece_selected.emit(self) # Board'a "Bana dokundular" de.
 	print("Dokunuldu: ", grid_position)
 	
-	# JUICE: Dokunulduğunda hafifçe parlasın veya büyüsün
+	# JUICE: POP UP effect
+	z_index = 10
+	modulate = Color(1.5, 1.5, 1.5) # HDR Glow
+	
 	var tween = create_tween()
-	tween.tween_property($Sprite2D, "scale", Vector2(0.6, 0.6), 0.1)
+	# Use relative scale based on initial_scale
+	tween.tween_property($Sprite2D, "scale", initial_scale * 1.2, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _end_drag() -> void:
 	if not is_dragging: return
 	
 	is_dragging = false
-	# JUICE: Bırakıldığında eski boyutuna dönsün
+	
+	# JUICE: Reset
+	z_index = 0
+	modulate = Color.WHITE
+	
 	var tween = create_tween()
-	tween.tween_property($Sprite2D, "scale", Vector2(0.5, 0.5), 0.1)
+	# Return to initial storage scale
+	tween.tween_property($Sprite2D, "scale", initial_scale, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 # Her karede sürükleme devam ediyor mu diye kontrol et (2. AŞAMA: Sürükleme)
 func _process(_delta: float) -> void:

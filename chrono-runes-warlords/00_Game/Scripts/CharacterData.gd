@@ -4,7 +4,18 @@ class_name CharacterData extends Resource
 # --- ENUMS ---
 # --- ENUMS ---
 enum Rarity { COMMON, RARE, EPIC, LEGENDARY }
-enum SkillType { DIRECT_DAMAGE, HEAL, BUFF_ATTACK }
+enum SkillType { 
+	DIRECT_DAMAGE, 
+	HEAL, 
+	BUFF_ATTACK,
+	STUN,
+	DOT,
+	DEFENSE_BREAK,
+	MANA_BATTERY,
+	CLEANSE,
+	BOARD_MANIPULATION,
+	TRANSMUTE
+}
 
 # --- EXPORT VARIABLES (STRICT TYPING) ---
 @export_group("Identity")

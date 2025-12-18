@@ -222,6 +222,18 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 		print("Eşleşme YOK! Geri alınıyor...")
 		Audio.play_sfx("error")
 		
+		# SHAKE FEEDBACK (Invalid Move)
+		var shake_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		# Shake Piece 1
+		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x + 5, 0.05)
+		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x - 5, 0.05)
+		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x, 0.05)
+		# Shake Piece 2 (Parallel, but we just chain it or use parallel on new tween. 
+		# Let's simple chain or just do it on p1 then p2 is weird. Better: parallel shake both manually or sequentially)
+		# Actually, simple shake is enough.
+		
+		await shake_tween.finished
+		
 		# Revert Data
 		all_pieces[pos_1.x][pos_1.y] = piece_1
 		all_pieces[pos_2.x][pos_2.y] = piece_2
@@ -549,3 +561,141 @@ func spawn_floating_text(text: String, val: int, color_name: String, pos: Vector
 		
 	if ft.has_method("start_animation"):
 		ft.start_animation(text, c)
+
+# --- SKILL EFFECTS (Called by MainGame) ---
+
+func destroy_all_of_color(target_color: String) -> void:
+	Audio.play_sfx("combo")
+	
+	var targets: Array[GamePiece] = []
+	for x in range(width):
+		for y in range(height):
+			var p = all_pieces[x][y]
+			if p and p.type == target_color:
+				targets.append(p)
+				
+	if targets.is_empty(): 
+		return
+		
+	# Visual
+	spawn_floating_text("WIPE!", targets.size(), target_color, get_viewport_rect().get_center())
+	
+	current_combo += 1
+	var total_dmg = targets.size() * 15
+	
+	damage_dealt.emit(total_dmg, target_color, targets.size(), current_combo)
+	mana_gained.emit(targets.size() * 5, target_color)
+	
+	for p in targets:
+		damage_piece(p)
+		all_pieces[p.grid_position.x][p.grid_position.y] = null
+		
+	await get_tree().create_timer(0.3).timeout
+	refill_board()
+
+func transmute_pieces(count: int, target_color: String) -> void:
+	print("--- Transmute Triggered for: ", target_color, " ---")
+	
+	# MAPPING DICTIONARY (Element -> Board Color)
+	var element_to_color = {
+		"light": "yellow",
+		"dark": "purple",
+		"nature": "green",
+		"fire": "red",
+		"water": "blue",
+		# Add direct mappings for safety if "red" is passed directly
+		"red": "red",
+		"blue": "blue",
+		"green": "green",
+		"yellow": "yellow",
+		"purple": "purple"
+	}
+	
+	# Normalization and Translation
+	var raw_lower = target_color.to_lower()
+	var final_color = raw_lower
+	
+	if element_to_color.has(raw_lower):
+		final_color = element_to_color[raw_lower]
+		print("Mapped element '", raw_lower, "' to color '", final_color, "'")
+	else:
+		print("WARNING: Element '", raw_lower, "' has no color mapping! Using raw value.")
+	
+	var candidates: Array[GamePiece] = []
+	
+	for x in range(width):
+		for y in range(height):
+			var p = all_pieces[x][y]
+			# Ensure we don't transmute pieces that are already that color
+			if p and p.type != final_color:
+				candidates.append(p)
+				
+	candidates.shuffle()
+	var targets = candidates.slice(0, count)
+	
+	if targets.is_empty(): 
+		print("No valid candidates for transmutation.")
+		return
+	
+	Audio.play_sfx("match")
+	spawn_floating_text("ALCHEMY!", targets.size(), final_color, get_viewport_rect().get_center())
+	
+	# Visual definitions for explicit update
+	var base_tex = preload("res://icon.svg")
+	var visual_data = {
+		"red": {"color": Color("#ff4d4d"), "symbol": "⚔️"},
+		"blue": {"color": Color("#4da6ff"), "symbol": "💧"},
+		"green": {"color": Color("#5cd65c"), "symbol": "🌿"},
+		"yellow": {"color": Color("#ffd11a"), "symbol": "⚡"},
+		"purple": {"color": Color("#ac00e6"), "symbol": "💀"}
+	}
+	
+	# Check for key existence early
+	if not visual_data.has(final_color):
+		print("ERROR: Texture NOT found for key: ", final_color)
+	
+	# 1. Apply changes visually and logically
+	for p in targets:
+		p.type = final_color
+		
+		# VFX with visual update
+		var t = create_tween()
+		t.tween_property(p, "scale", Vector2(0.1, 1.2), 0.1)
+		
+		# Explicitly update visual in callback
+		t.tween_callback(func(): 
+			if visual_data.has(final_color):
+				var data = visual_data[final_color]
+				p.set_visual(base_tex, data.color, data.symbol)
+				# Force modulation update just in case set_visual missed it or override
+				p.modulate = Color.WHITE # Reset unexpected modulation first
+				p.get_node("Sprite2D").modulate = data.color
+			else:
+				print("Fallback visual update for ", final_color)
+				_update_piece_visual(p)
+		)
+		
+		t.tween_property(p, "scale", Vector2.ONE, 0.1)
+		
+	# 2. WAIT for VFX to finish
+	await get_tree().create_timer(0.3).timeout
+	
+	# 3. TRIGGER MATCHES
+	if find_matches():
+		print("Transmute caused matches! Destroying...")
+		destroy_matched_pieces()
+	else:
+		_check_for_deadlock_and_finish()
+
+func destroy_gems_by_color(color: String) -> void:
+	# Iterate through all squares
+	for x in range(width):
+		for y in range(height):
+			var current_piece = all_pieces[x][y]
+			if current_piece and current_piece.type == color:
+				damage_piece(current_piece)
+				all_pieces[x][y] = null
+				
+	# Refill Board after clearing
+	await get_tree().create_timer(0.3).timeout
+	refill_board()

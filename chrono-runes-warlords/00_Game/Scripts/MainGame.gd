@@ -100,6 +100,7 @@ func _on_pause_quit() -> void:
 	# SUSPEND SESSION: Save state so we can resume (unless team changes)
 	_save_current_battle_state()
 	GameEconomy.save_game() # FIX: Flush to disk immediately
+	await get_tree().create_timer(0.1).timeout # Safety Buffer
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
 func _setup_battle_heroes() -> void:
@@ -133,15 +134,32 @@ func _setup_battle_heroes() -> void:
 
 func _on_board_settled() -> void:
 	_save_current_battle_state()
+	GameEconomy.save_game() # Fixed: Aggressive Save
+	print("Auto-saved after turn.")
 	
 	is_player_turn = false
 	board_manager.is_processing_move = true 
 	await get_tree().create_timer(0.5).timeout
 	
 	if is_instance_valid(enemy):
-		enemy.attack_player()
+		_start_enemy_turn()
 	else:
 		start_player_turn()
+
+func _start_enemy_turn() -> void:
+	if not is_instance_valid(enemy):
+		start_player_turn()
+		return
+		
+	# PROCESS STATUS EFFECTS
+	var is_stunned = enemy.process_turn_start()
+	
+	if is_stunned:
+		spawn_status_text("DÜŞMAN SERSEMLEDİ!", Color.BLUE, enemy.global_position + Vector2(0, -100), 1.5)
+		await get_tree().create_timer(1.0).timeout
+		start_player_turn()
+	else:
+		enemy.attack_player()
 		
 func _on_enemy_attack_finished() -> void:
 	take_player_damage(current_enemy_damage)
@@ -230,21 +248,32 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	enemy.take_damage(final_damage, type)
 	distribute_mana(type, match_count)
 	
-	# 3. Visuals (Text & Colors)
+	# 3. Visuals & Juice (Refactored)
 	var elem_mult = CombatMath.get_elemental_multiplier(type, enemy_elem)
 	var is_crit = elem_mult > 1.0
 	var is_resist = elem_mult < 1.0
-	var text_color = CombatMath.get_damage_color(type, is_crit, is_resist)
 	
+	# Determine Text Scale & Color with Priority
 	var text_content = str(final_damage)
 	var text_scale = 1.0
+	var text_color = CombatMath.get_damage_color(type, is_crit, is_resist)
 	
-	if is_crit:
-		text_content = "CRITICAL %s!" % text_content
-		text_scale = 1.5
+	if match_count >= 5:
+		text_scale = 2.0
+		text_color = Color.MAGENTA
+		spawn_status_text("LEGENDARY!", Color.VIOLET, get_viewport_rect().get_center() + Vector2(0, -350), 2.0)
+	elif is_crit:
+		text_scale = 1.6
+		text_color = Color.GOLD
+		text_content = "CRITICAL %s!" % final_damage
+	elif match_count == 4:
+		text_scale = 1.3
+		text_color = Color.CYAN
+		spawn_status_text("GREAT!", Color.CYAN, get_viewport_rect().get_center() + Vector2(0, -350), 1.5)
 	elif is_resist:
-		text_content = "RESIST %s" % text_content
-		text_scale = 0.8
+		text_scale = 0.7
+		text_color = Color.GRAY
+		text_content = "RESIST %s" % final_damage
 		
 	if active_buff_multiplier > 1.0:
 		text_content += "\nBUFFED"
@@ -253,20 +282,37 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	# Spawn Damage Text
 	spawn_status_text(text_content, text_color, enemy.global_position, text_scale)
 	
-	# Combo & Match Context (Still keeping for gamefeel)
+	# Dynamic Screen Shake
+	var shake_intensity = 0.0
+	var shake_duration = 0.0
+	
+	if match_count == 3:
+		shake_intensity = 2.0
+		shake_duration = 0.2
+	elif match_count == 4:
+		shake_intensity = 5.0
+		shake_duration = 0.3
+	elif match_count >= 5:
+		shake_intensity = 10.0
+		shake_duration = 0.5
+		
 	if combo_count > 1:
+		shake_intensity += float(combo_count)
+		# Combo Text
 		var combo_text = "COMBO x%d" % combo_count
 		var center_pos = get_viewport_rect().get_center() + Vector2(0, -200)
 		var combo_jitter = Vector2(randf_range(-40, 40), randf_range(-40, 40))
 		spawn_status_text(combo_text, Color.GOLD, center_pos + combo_jitter, 1.3)
 		
-	if match_count == 4:
-		spawn_status_text("GREAT!", Color.CYAN, get_viewport_rect().get_center() + Vector2(0, -350), 1.5)
-	elif match_count >= 5:
-		spawn_status_text("LEGENDARY!", Color.VIOLET, get_viewport_rect().get_center() + Vector2(0, -350), 2.0)
+	if shake_intensity > 0:
+		shake_screen(shake_intensity, shake_duration)
 	
 	current_score += final_damage
-	Audio.play_sfx("playerAttack")
+	
+	# Audio Pitch Scaling
+	var pitch_mod = 1.0 + (float(combo_count) * 0.05)
+	Audio.play_sfx("playerAttack", pitch_mod)
+	
 	await get_tree().create_timer(0.2).timeout
 	Audio.play_sfx("enemyHit")
 
@@ -339,46 +385,68 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	Audio.play_sfx("combo", 0.5)
 	
 	var hero_level = GameEconomy.get_hero_level(hero_data.id)
+	var final_power = GameEconomy.get_hero_skill_power(hero_data.id)
 	
 	match hero_data.skill_type:
 		CharacterData.SkillType.DIRECT_DAMAGE:
-			# Power Calculation
-			var final_power = GameEconomy.get_hero_skill_power(hero_data.id)
-			
 			# Buff Application
-			var is_buffed = false
 			if buff_remaining_turns > 0:
 				final_power = int(final_power * active_buff_multiplier)
 				buff_remaining_turns -= 1
-				is_buffed = true
 				if buff_remaining_turns <= 0:
 					active_buff_multiplier = 1.0
 			
 			enemy.take_damage(final_power, "magic")
-			
-			# Visuals
-			var color = Color.RED
-			if hero_data.element_text:
-				var elem = _get_element_color(hero_data.element_text)
-				color = _get_element_color_value(elem)
-			
-			var text = "SKILL!\n%d" % final_power
-			if is_buffed:
-				text += "\nBUFFED"
-				
-			spawn_status_text(text, color, enemy.global_position, 1.2)
+			spawn_status_text("SKILL!\n%d" % final_power, Color.RED, enemy.global_position, 1.2)
 			
 		CharacterData.SkillType.HEAL:
-			# Scalable Heal: 200 Base + 30 per Level
 			var heal_amount = 200 + (hero_level * 30)
 			heal_player(heal_amount)
 			spawn_status_text("HEAL +%d" % heal_amount, Color.GREEN, ui_layer.offset + Vector2(200, 400), 1.2)
 			
 		CharacterData.SkillType.BUFF_ATTACK:
-			# Scalable Buff: 1.2 Base + 0.05 per Level
 			active_buff_multiplier = 1.2 + (float(hero_level) * 0.05)
 			buff_remaining_turns = 5
 			spawn_status_text("DAMAGE UP!\nx%.2f" % active_buff_multiplier, Color.GOLD, ui_layer.offset + Vector2(200, 400), 1.2)
+
+		CharacterData.SkillType.STUN:
+			enemy.apply_status("stun", 2)
+			spawn_status_text("KÖK SALDI!", Color.BLUE, enemy.global_position, 1.5)
+			
+		CharacterData.SkillType.DOT:
+			var dot_dmg = int(final_power * 0.5)
+			enemy.apply_status("dot", 3, dot_dmg)
+			spawn_status_text("ZEHİRLENDİ!", Color.PURPLE, enemy.global_position, 1.2)
+			
+		CharacterData.SkillType.DEFENSE_BREAK:
+			enemy.apply_status("def_break", 3)
+			spawn_status_text("ZIRH KIRILDI!", Color.YELLOW, enemy.global_position, 1.2)
+			
+		CharacterData.SkillType.MANA_BATTERY:
+			spawn_status_text("MANA YÜKLENDİ!", Color.CYAN, get_viewport_rect().get_center(), 1.2)
+			if heroes_container:
+				for hero in heroes_container.get_children():
+					# Don't give mana to self to prevent infinite loops if cost < gain
+					if hero.hero_data and hero.hero_data.id != hero_data.id:
+						if hero.has_method("add_mana"):
+							hero.add_mana(50)
+							
+		CharacterData.SkillType.CLEANSE:
+			spawn_status_text("ARINDIRILDI!", Color.WHITE, get_viewport_rect().get_center(), 1.2)
+			# Placeholder logic: In future, clear negative statuses on player if any
+			
+		CharacterData.SkillType.BOARD_MANIPULATION: # Color Wipe
+			if board_manager:
+				board_manager.destroy_gems_by_color(hero_data.element_text.to_lower())
+				
+		CharacterData.SkillType.TRANSMUTE:
+			if board_manager:
+				# Transmute 5 random gems to hero's element
+				board_manager.transmute_pieces(5, hero_data.element_text.to_lower())
+	
+	# Save state immediately after using ANY skill
+	_save_current_battle_state()
+	GameEconomy.save_game()
 
 func _on_enemy_died() -> void:
 	is_level_transitioning = true
@@ -509,6 +577,14 @@ func _load_battle_state() -> void:
 	new_enemy.current_hp = enemy_hp
 	new_enemy.setup_element(enemy_elem)
 	new_enemy.update_ui()
+	
+	# FIX: Auto-kill if loaded dead enemy (Zombie Bug)
+	if new_enemy.current_hp <= 0:
+		print("Loaded a dead enemy (0 HP). Triggering death sequence...")
+		if new_enemy.has_method("die"):
+			new_enemy.die()
+		else:
+			_on_enemy_died() # Fallback if no public die method
 	
 	if current_level % 5 == 0:
 		new_enemy.scale = Vector2(1.5, 1.5)

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CharacterData" load_steps=3 format=3 uid="uid://d1kri4dre24kq"]
+
+[ext_resource type="Texture2D" uid="uid://bed203duq34r0" path="res://icon.svg" id="1_jti2y"]
+[ext_resource type="Script" uid="uid://chd0do1hdflc" path="res://00_Game/Scripts/CharacterData.gd" id="1_lsu20"]
+
+[resource]
+script = ExtResource("1_lsu20")
+id = "hero_light_mage"
+character_name = "Isık Büyücüsü"
+portrait = ExtResource("1_jti2y")
+element_text = "Light"
+rarity = 2
+skill_type = 9
+skill_power = 5
+skill_name = "Transmute All"
+metadata/_custom_type_script = "uid://chd0do1hdflc"
