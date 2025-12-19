@@ -1,18 +1,18 @@
 class_name GameOverUI extends Control
 
-signal restart_requested # MainGame'e "Baştan başlat" diyecek
+signal restart_requested # Tell MainGame to 'Restart'
 signal menu_requested
 @onready var score_label: Label = $TextureRect/ScoreLabel
-@onready var title_label: Label = $TextureRect/TitleLabel # YOLU KONTROL ET!
-@onready var restart_button: Button = $TextureRect/RestartButton # YOLU KONTROL ET!
+@onready var title_label: Label = $TextureRect/TitleLabel # CHECK PATH!
+@onready var restart_button: Button = $TextureRect/RestartButton # CHECK PATH!
 @onready var background_image: TextureRect = $TextureRect
-@onready var menu_button: Button = $TextureRect/MenuButton # Yolunu kontrol et!
+@onready var menu_button: Button = $TextureRect/MenuButton # Check path!
 
 
 func _ready() -> void:
-	# Başlangıçta görünmez olsun
+	# Initially invisible
 	visible = false
-	# Butona basılınca sinyal gönder
+	# Emit signal when button pressed
 	restart_button.pressed.connect(_on_restart_pressed)
 	menu_button.pressed.connect(_on_menu_pressed)
 	
@@ -27,38 +27,38 @@ func show_result(is_victory: bool, final_score:int) -> void:
 	score_label.text = "SKOR: %d\nEN İYİ: %d" % [final_score, best_score]
 	
 	if final_score >= best_score and final_score > 0:
-		score_label.modulate = Color.YELLOW # Rekor kırıldıysa altın rengi yap!
-		score_label.text += "\nYENİ REKOR!"
+		score_label.modulate = Color.YELLOW # Turn gold if record broken!
+		score_label.text += "\nNEW RECORD!"
 	
-	# 1. Önce Metin ve Renkleri Ayarla (Setup)
+	# 1. Setup Text and Colors
 	if is_victory:
-		title_label.text = "ZAFER!"
-		title_label.modulate = Color("#5cd65c") # RPG Yeşili
-		# MONETIZASYON FIRSATI: Buraya "2x Ödül" butonu konulur.
+		title_label.text = "VICTORY!"
+		title_label.modulate = Color("#5cd65c") # RPG Green
+		# MONETIZATION OP: '2x Reward' button can be placed here.
 	else:
-		title_label.text = "YENİLGİ..."
-		title_label.modulate = Color("#ff4d4d") # Kan Kırmızısı
-		# MONETIZASYON FIRSATI: Buraya "Revive" (Canlan) butonu konulur.
+		title_label.text = "DEFEAT..."
+		title_label.modulate = Color("#ff4d4d") # Blood Red
+		# MONETIZATION OP: 'Revive' button can be placed here.
 	
-	# 2. Sonra Animasyonu Başlat (Action)
-	# Tek bir Tween bloğu yeterli.
+	# 2. Start Animation (Action)
+	# Single Tween block is enough.
 	
-	# Başlangıç durumu: Küçücük olsun (Görünmez gibi)
+	# Initial state: Tiny (Invisible)
 	background_image.scale = Vector2.ZERO
-	# Merkezden büyüsün diye pivotu ortaya alıyoruz
+	# Set pivot to center to scale from center
 	background_image.pivot_offset = background_image.size / 2
 	
-	# "Pop" efektiyle büyüt
+	# Scale up with 'Pop' effect
 	var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(background_image, "scale", Vector2(1.0, 1.0), 0.4)
 
 func _on_restart_pressed() -> void:
-	# Oyunu tekrar akışkan hale getir
+	# Resume game flow
 	get_tree().paused = false
 	restart_requested.emit()
-	queue_free() # Kendini yok et (MainGame yenisini yaratır veya sahne resetlenir)
+	queue_free() # Destroy self (MainGame creates new one or scene resets)
 	
 func _on_menu_pressed() -> void:
-	get_tree().paused = false # Oyunu çözmeyi unutma!
-	# Direkt sahne değiştir:
+	get_tree().paused = false # Don't forget to unpause game!
+	# Change scene directly:
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")

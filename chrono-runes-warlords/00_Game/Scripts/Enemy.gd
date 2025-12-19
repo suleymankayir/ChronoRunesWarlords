@@ -1,6 +1,6 @@
 class_name Enemy extends Node2D
 
-signal died # Öldüğünde haber verecek
+signal died # Signal when dead
 @export var vfx_hit_scene: PackedScene
 @export var max_hp: int = 20
 var current_hp: int
@@ -10,7 +10,7 @@ var current_hp: int
 @onready var visuals: Sprite2D = $Visuals
 
 func _ready() -> void:
-	# Başlangıç ayarları
+	# Initial settings
 	current_hp = max_hp
 	update_ui()
 
@@ -92,20 +92,20 @@ func take_damage(amount: int, element_type: String) -> void:
 		amount = int(amount * defense_multiplier)
 		
 	current_hp -= amount
-	current_hp = max(0, current_hp) # Can 0'ın altına düşmesin
+	current_hp = max(0, current_hp) # Prevent HP from dropping below 0
 	
 	if vfx_hit_scene:
 		var vfx = vfx_hit_scene.instantiate() as VFX_Explosion
-		get_parent().add_child(vfx) # MainGame'e ekle ki düşman titrerken partikül de titremesin
+		get_parent().add_child(vfx) # Add to MainGame so particle doesn't shake with enemy
 		
-		# Düşmanın tam ortasında, Kan Kırmızısı veya Parlak Beyaz patlasın
-		# global_position kullanarak tam yerini buluyoruz
-		vfx.setup(global_position, Color.RED) # Veya Color(2, 0, 0) yaparsan parlar (HDR)
+		# Explode in center of enemy, Blood Red or Bright White
+		# Find exact location using global_position
+		vfx.setup(global_position, Color.RED) # Or use Color(2, 0, 0) to glow (HDR)
 	
 	update_ui()
 	play_hit_animation()
 	Audio.play_sfx("enemyHit", randf_range(0.9, 1.1))
-	print("Düşman hasar aldı: ", amount, " | Kalan Can: ", current_hp)
+	print("Enemy took damage: ", amount, " | HP Remaining: ", current_hp)
 	
 	if current_hp <= 0:
 		die()
@@ -129,41 +129,41 @@ func play_hit_animation() -> void:
 		var offset = Vector2(randf_range(-shake_strength, shake_strength), randf_range(-shake_strength, shake_strength))
 		tween.tween_property(visuals, "position", offset, 0.05)
 	
-	# Sonunda merkeze dön
+	# Return to center at end
 	tween.tween_property(visuals, "position", Vector2.ZERO, 0.05)
 
 func die() -> void:
 	Audio.play_sfx("enemyDeath")
-	print("DÜŞMAN ÖLDÜ! ZAFER!")
+	print("ENEMY DIED! VICTORY!")
 	died.emit()
-	# Şimdilik sadece yok olsun, sonra buraya Loot/Win ekranı gelecek
+	# Just destroy for now, Loot/Win screen will come later
 	queue_free()
-signal attack_finished # Saldırım bitti, sıra sende demek için
+signal attack_finished # To say my attack is finished, your turn
 
 func attack_player() -> void:
 	Audio.play_sfx("enemyAttack")
-	print("Düşman Saldırıyor!")
+	print("Enemy Attacking!")
 	
-	# JUICE: Düşman ileri doğru (ekrana) hamle yapsın
+	# JUICE: Enemy lunges forward (towards screen)
 	var original_pos = position
 	var tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN_OUT)
 	
-	# 1. Geri çekil (Hazırlık)
+	# 1. Pull back (Anticipation)
 	tween.tween_property(self, "position", position + Vector2(0, -50), 0.2)
-	# 2. İleri fırla (Vuruş)
+	# 2. Lunge forward (Strike)
 	tween.tween_property(self, "position", position + Vector2(0, 100), 0.1)
 	
-	# Vuruş anında sinyal göndereceğiz (MainGame yakalayacak)
+	# Emit signal at strike moment (MainGame will catch)
 	tween.tween_callback(func(): _deal_damage_to_player())
 	
-	# 3. Yerine dön
+	# 3. Return to position
 	tween.tween_property(self, "position", original_pos, 0.4)
 	
-	# Animasyon bitince haber ver
+	# Notify when animation finishes
 	await tween.finished
 	attack_finished.emit()
 
 func _deal_damage_to_player() -> void:
-	# Burada sadece görsel efekt veya ses çalınabilir
-	# Asıl hasar düşme işlemi MainGame'de yapılacak
+	# Only visual effects or sound can be played here
+	# Actual damage dealing logic will be in MainGame
 	pass

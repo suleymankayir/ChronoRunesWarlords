@@ -11,39 +11,39 @@ var _data: CharacterData
 @onready var border: ColorRect = $SlotRoot/Border
 
 func _ready() -> void:
-	# Tıklama olaylarını almak için mouse_filter ayarını kontrol ediyoruz
+	# Check mouse_filter setting to receive click events
 	mouse_filter = MouseFilter.MOUSE_FILTER_STOP
 	
-	# Eğer data daha önce (set_slot_data ile) set edildiyse, şimdi UI'ı güncelle
+	# If data was set before (via set_slot_data), update UI now
 	if _data:
 		_update_ui()
 
 func set_slot_data(data: CharacterData) -> void:
 	_data = data
 	
-	# Eğer node hazırsa hemen güncelle, değilse _ready'i bekle
+	# If node is ready update immediately, otherwise wait for _ready
 	if is_node_ready():
 		_update_ui()
 
 func _update_ui() -> void:
 	if not _data: return
 	
-	# 1. Görseli yükle
+	# 1. Load visual
 	if hero_image:
 		hero_image.texture = _data.full_body_art
 	
-	# 2. Çerçeve rengini nadirliğe göre ayarla
+	# 2. Set border color by rarity
 	if border:
 		border.color = _get_color_by_rarity(_data.rarity)
 
 func _gui_input(event: InputEvent) -> void:
-	# Sol tık kontrolü
+	# Left click check
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if _data:
 				clicked.emit(_data)
 
-# Yardımcı Fonksiyon: Renk seçimi
+# Helper Function: Color selection
 func _get_color_by_rarity(rarity_enum: CharacterData.Rarity) -> Color:
 	match rarity_enum:
 		CharacterData.Rarity.COMMON:

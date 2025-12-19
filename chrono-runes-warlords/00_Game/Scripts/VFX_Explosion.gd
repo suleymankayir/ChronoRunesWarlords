@@ -6,6 +6,6 @@ func setup(pos: Vector2, color: Color) -> void:
 	one_shot = true
 	emitting = true
 	
-	# İş bitince kendini yok et
+	# Destroy self when finished
 	await finished
 	queue_free()

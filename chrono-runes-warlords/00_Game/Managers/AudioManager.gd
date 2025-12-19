@@ -1,6 +1,6 @@
 class_name AudioManager extends Node
 
-# --- SES KÜTÜPHANESİ (Eski sistemin çalışmaya devam etsin diye) ---
+# --- AUDIO LIBRARY (Kept for legacy system compatibility) ---
 var sounds: Dictionary = {
 	"swap": preload("res://01_Assets/Audio/SFX/swap.wav"),
 	"match": preload("res://01_Assets/Audio/SFX/match.wav"),
@@ -16,7 +16,7 @@ var sounds: Dictionary = {
 	"gameover": preload("res://01_Assets/Audio/SFX/gameover.wav")
 }
 
-# MÜZİK AYARLARI
+# MUSIC SETTINGS
 var bg_music = preload("res://01_Assets/Audio/Music/bg_music.mp3") 
 var music_tween: Tween
 @onready var music_player: AudioStreamPlayer = $MusicPlayer
@@ -38,31 +38,31 @@ func _ready() -> void:
 		sfx_volume = db_to_linear(AudioServer.get_bus_volume_db(sfx_bus))
 
 # ------------------------------------------------------------------------------
-# HİBRİT SFX FONKSİYONU (Sihir Burada)
+# HYBRID SFX FUNCTION (Magic Here)
 # ------------------------------------------------------------------------------
-# 'data' değişkeni String ("swap") de olabilir, AudioStream (dosya) de olabilir.
-# Tip belirtmedik (Variant), içeride kontrol edeceğiz.
+# 'data' variable can be a String ("swap") or an AudioStream (file).
+# Type not specified (Variant), checking internally.
 func play_sfx(data, pitch_scale: float = 1.0) -> void:
 	var stream_to_play: AudioStream = null
 
-	# SENARYO 1: Eski sistem (String gelirse)
+	# SCENARIO 1: Legacy system (if String)
 	if data is String:
 		if sounds.has(data):
 			stream_to_play = sounds[data]
 		else:
-			print("⚠️ HATA: Ses sözlükte bulunamadı -> ", data)
+			print("⚠️ ERROR: Sound not found in dictionary -> ", data)
 			return
 
-	# SENARYO 2: Yeni sistem (AudioStream gelirse - SummonUI burayı kullanır)
+	# SCENARIO 2: New system (if AudioStream - used by SummonUI)
 	elif data is AudioStream:
 		stream_to_play = data
 
-	# SENARYO 3: Hatalı veri
+	# SCENARIO 3: Invalid data
 	else:
-		print("⚠️ HATA: play_sfx'e geçersiz veri tipi yollandı!")
+		print("⚠️ ERROR: Invalid data type sent to play_sfx!")
 		return
 
-	# --- ÇALMA İŞLEMİ ---
+	# --- PLAYING PROCESS ---
 	if stream_to_play:
 		var player = AudioStreamPlayer.new()
 		player.stream = stream_to_play
@@ -71,31 +71,31 @@ func play_sfx(data, pitch_scale: float = 1.0) -> void:
 		
 		add_child(player)
 		player.play()
-		# Çalma bitince player'ı hafızadan sil (Memory Leak önleyici)
+		# Delete player from memory when finished (Memory Leak prevention)
 		player.finished.connect(player.queue_free)
 
 # ------------------------------------------------------------------------------
-# MÜZİK FONKSİYONLARI (Aynen korundu)
+# MUSIC FUNCTIONS (Kept as is)
 # ------------------------------------------------------------------------------
 func play_music(stream: AudioStream) -> void:
-	# 1. Önceki fade-out varsa iptal et
+	# 1. Cancel previous fade-out if exists
 	if music_tween:
 		music_tween.kill()
 	
-	# Eğer player yoksa oluştur (Crash önlemi)
+	# Create player if not exists (Crash prevention)
 	if not music_player:
 		music_player = AudioStreamPlayer.new()
 		music_player.name = "MusicPlayer"
 		add_child(music_player)
 
-	# 2. Sesi her zaman normal seviyeye çek (Çünkü fade-out kısmış olabilir)
+	# 2. Always reset volume to normal (Fade-out might have lowered it)
 	music_player.volume_db = 0.0
 	
-	# 3. Aynı şarkıysa ve zaten çalıyorsa baştan başlatma
+	# 3. Do not restart if same song is already playing
 	if music_player.stream == stream and music_player.playing:
 		return
 		
-	# 4. Yeni şarkıyı başlat
+	# 4. Start new song
 	music_player.stream = stream
 	music_player.bus = "Music"
 	music_player.play()
@@ -105,13 +105,13 @@ func stop_music() -> void:
 		music_tween.kill()
 	
 	if music_player and music_player.playing:
-		# Tween'i sınıf değişkenine ata ki play_music onu bulup durdurabilsin
+		# Assign Tween to class variable so play_music can find and stop it
 		music_tween = create_tween()
 		music_tween.tween_property(music_player, "volume_db", -80.0, 1.0)
 		music_tween.tween_callback(music_player.stop)
 
 # ------------------------------------------------------------------------------
-# SES AYARLARI (Yeni)
+# AUDIO SETTINGS (New)
 # ------------------------------------------------------------------------------
 func set_music_volume(value: float) -> void:
 	music_volume = value

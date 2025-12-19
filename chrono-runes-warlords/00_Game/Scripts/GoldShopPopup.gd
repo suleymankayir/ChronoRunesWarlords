@@ -30,7 +30,7 @@ func open(missing_gold_amount: int) -> void:
 		description_label.text = "Get %d Gold for %d Gems?" % [gold_to_give, _gem_cost]
 		
 	if buy_button:
-		buy_button.text = "SATIN AL (%d Elmas)" % _gem_cost
+		buy_button.text = "BUY (%d Gems)" % _gem_cost
 		
 	show()
 

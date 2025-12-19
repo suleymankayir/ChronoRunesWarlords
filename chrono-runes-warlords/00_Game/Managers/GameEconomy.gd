@@ -45,7 +45,7 @@ func _ready() -> void:
 		if res: character_db["hero_nature_druid"] = res
 
 func start_new_game() -> void:
-	print(">>> YENİ OYUN BAŞLATILIYOR (RAM + DISK)...")
+	print(">>> STARTING NEW GAME (RAM + DISK)...")
 	
 	# 1. Force Set RAM Variables First
 	gold = 200

@@ -20,18 +20,18 @@ func _ready() -> void:
 	refresh_grid()
 
 func refresh_grid() -> void:
-	print(">>> KOLEKSİYON YENİLENİYOR...")
+	print(">>> COLLECTION REFRESHING...")
 	
 	if not grid_container:
 		print("ERROR: Grid Container is missing!")
 		return
 
 	# Print 2
-	print(">>> BANKADAKİ KAHRAMAN SAYISI: ", GameEconomy.owned_heroes.size())
-	print(">>> SAHİP OLUNAN ID'LER: ", GameEconomy.owned_heroes)
+	print(">>> NUMBER OF HEROES IN BANK: ", GameEconomy.owned_heroes.size())
+	print(">>> OWNED IDs: ", GameEconomy.owned_heroes)
 	
 	# Using character_db size for debug now
-	print(">>> DB KAHRAMAN SAYISI: ", GameEconomy.character_db.size())
+	print(">>> DB HERO COUNT: ", GameEconomy.character_db.size())
 	
 	# 1. Clear existing slots
 	for child in grid_container.get_children():
@@ -45,7 +45,7 @@ func refresh_grid() -> void:
 			continue
 			
 		# Print 4 - Loop Logic
-		print("--- Kontrol ediliyor: ", hero_data.id, " | Sahip miyiz?: ", GameEconomy.owned_heroes.has(hero_data.id))
+		print("--- Checking: ", hero_data.id, " | Owned?: ", GameEconomy.owned_heroes.has(hero_data.id))
 		
 		# Check if owned (using Array check)
 		if hero_data.id in GameEconomy.owned_heroes:

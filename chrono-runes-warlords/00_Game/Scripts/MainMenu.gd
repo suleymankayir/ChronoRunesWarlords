@@ -30,12 +30,12 @@ func _ready() -> void:
 	# Check Save File
 	has_save_file = FileAccess.file_exists(GameEconomy.SAVE_PATH)
 	if has_save_file:
-		start_button.text = "DEVAM ET"
+		start_button.text = "CONTINUE"
 	else:
-		start_button.text = "YENİ OYUN"
+		start_button.text = "NEW GAME"
 		
 	if GameEconomy.high_score > 0:
-		$VBoxContainer/HighScoreLabel.text = "EN YÜKSEK SKOR: " + str(GameEconomy.high_score)
+		$VBoxContainer/HighScoreLabel.text = "HIGH SCORE: " + str(GameEconomy.high_score)
 
 func _on_start_pressed() -> void:
 	Audio.play_sfx("swap")
@@ -51,7 +51,7 @@ func _on_start_pressed() -> void:
 		print(">>> No Active Battle, Going to Map")
 		get_tree().change_scene_to_packed(map_scene)
 	else:
-		print("⚠️ HATA: MainMenu Inspector'ında 'Map Scene' boş bırakılmış!")
+		print("⚠️ ERROR: 'Map Scene' empty in MainMenu Inspector!")
 
 func _on_summon_button_pressed() -> void:
 	Audio.play_sfx("swap")

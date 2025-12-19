@@ -1,6 +1,6 @@
 class_name BoardManager extends Node2D
 
-# Ayarlar
+# Settings
 @export var width: int = 7
 @export var height: int = 8
 @export var tile_size: int = 80
@@ -35,7 +35,7 @@ var active_hint_tweens: Array[Tween] = []
 
 func _ready() -> void:
 	if not piece_scene:
-		push_error("UYARI: BoardManager'a 'piece_scene' atanmadı!")
+		push_error("WARNING: 'piece_scene' not assigned to BoardManager!")
 		return
 		
 	var total_w = width * tile_size
@@ -216,10 +216,10 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 	
 	# Check Matches
 	if find_matches():
-		print("Eşleşme Bulundu!")
+		print("Match Found!")
 		destroy_matched_pieces() 
 	else:
-		print("Eşleşme YOK! Geri alınıyor...")
+		print("NO Match! Reverting...")
 		Audio.play_sfx("error")
 		
 		# SHAKE FEEDBACK (Invalid Move)

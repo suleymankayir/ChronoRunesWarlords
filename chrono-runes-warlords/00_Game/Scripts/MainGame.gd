@@ -155,7 +155,7 @@ func _start_enemy_turn() -> void:
 	var is_stunned = enemy.process_turn_start()
 	
 	if is_stunned:
-		spawn_status_text("DÜŞMAN SERSEMLEDİ!", Color.BLUE, enemy.global_position + Vector2(0, -100), 1.5)
+		spawn_status_text("ENEMY STUNNED!", Color.BLUE, enemy.global_position + Vector2(0, -100), 1.5)
 		await get_tree().create_timer(1.0).timeout
 		start_player_turn()
 	else:
@@ -411,19 +411,19 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 
 		CharacterData.SkillType.STUN:
 			enemy.apply_status("stun", 2)
-			spawn_status_text("KÖK SALDI!", Color.BLUE, enemy.global_position, 1.5)
+			spawn_status_text("ROOTED!", Color.BLUE, enemy.global_position, 1.5)
 			
 		CharacterData.SkillType.DOT:
 			var dot_dmg = int(final_power * 0.5)
 			enemy.apply_status("dot", 3, dot_dmg)
-			spawn_status_text("ZEHİRLENDİ!", Color.PURPLE, enemy.global_position, 1.2)
+			spawn_status_text("POISONED!", Color.PURPLE, enemy.global_position, 1.2)
 			
 		CharacterData.SkillType.DEFENSE_BREAK:
 			enemy.apply_status("def_break", 3)
-			spawn_status_text("ZIRH KIRILDI!", Color.YELLOW, enemy.global_position, 1.2)
+			spawn_status_text("ARMOR BROKEN!", Color.YELLOW, enemy.global_position, 1.2)
 			
 		CharacterData.SkillType.MANA_BATTERY:
-			spawn_status_text("MANA YÜKLENDİ!", Color.CYAN, get_viewport_rect().get_center(), 1.2)
+			spawn_status_text("MANA CHARGED!", Color.CYAN, get_viewport_rect().get_center(), 1.2)
 			if heroes_container:
 				for hero in heroes_container.get_children():
 					# Don't give mana to self to prevent infinite loops if cost < gain
@@ -432,7 +432,7 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 							hero.add_mana(50)
 							
 		CharacterData.SkillType.CLEANSE:
-			spawn_status_text("ARINDIRILDI!", Color.WHITE, get_viewport_rect().get_center(), 1.2)
+			spawn_status_text("CLEANSED!", Color.WHITE, get_viewport_rect().get_center(), 1.2)
 			# Placeholder logic: In future, clear negative statuses on player if any
 			
 		CharacterData.SkillType.BOARD_MANIPULATION: # Color Wipe

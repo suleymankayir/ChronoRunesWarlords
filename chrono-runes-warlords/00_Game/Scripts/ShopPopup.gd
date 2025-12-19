@@ -1,13 +1,13 @@
 class_name ShopPopup extends Control
 
-# --- UI REFERANSLARI ---
-@export var btn_ad: Button      # +500 Gold (Reklam)
-@export var btn_buy: Button     # +5000 Gold (Satın Al)
-@export var btn_close: Button   # Kapat
-@export var panel_root: Control # Animasyon için panel kökü
+# --- UI REFERENCES ---
+@export var btn_ad: Button      # +500 Gold (Ad)
+@export var btn_buy: Button     # +5000 Gold (Buy)
+@export var btn_close: Button   # Close
+@export var panel_root: Control # Panel root for animation
 
 func _ready() -> void:
-	# Anchorları tam ekran yap (Garanti olsun)
+	# Set anchors to full screen (Safety)
 	anchors_preset = Control.PRESET_FULL_RECT
 	
 	if btn_ad: btn_ad.pressed.connect(_on_ad_pressed)
@@ -16,7 +16,7 @@ func _ready() -> void:
 
 func open() -> void:
 	show()
-	# Animasyon: Küçükten büyüğe
+	# Animation: Small to big
 	if panel_root:
 		panel_root.pivot_offset = panel_root.size / 2
 		panel_root.scale = Vector2.ZERO
@@ -25,30 +25,30 @@ func open() -> void:
 		tween.tween_property(panel_root, "scale", Vector2.ONE, 0.3)
 
 func close() -> void:
-	# Verimlilik: Animasyon ile kapanabilir veya direkt silinebilir
+	# Efficiency: Can close with animation or delete directly
 	queue_free()
 
 func _on_ad_pressed() -> void:
-	print("📺 Reklam izleniyor...")
+	print("📺 Watching Ad...")
 	
-	# Butonları kilitle (Spam engelleme)
+	# Lock buttons (Prevent spam)
 	if btn_ad: btn_ad.disabled = true
 	if btn_buy: btn_buy.disabled = true
 	
-	# 1 Saniye bekle (Reklam Simülasyonu)
+	# Wait 1 Second (Ad Simulation)
 	await get_tree().create_timer(1.0).timeout
 	
-	# Ödülü ver
+	# Give reward
 	GameEconomy.add_gold(500) # REFACTORED
-	print("💰 Reklam Ödülü: 500 Gold eklendi. Yeni Bakiye: ", GameEconomy.gold)
+	print("💰 Ad Reward: 500 Gold added. New Balance: ", GameEconomy.gold)
 	
 	close()
 
 func _on_buy_pressed() -> void:
-	print("💳 Satın Alım Gerçekleşti!")
+	print("💳 Purchase Successful!")
 	
-	# Ödülü ver
+	# Give reward
 	GameEconomy.add_gold(5000) # REFACTORED
-	print("💰 Satın Alım: 5000 Gold eklendi. Yeni Bakiye: ", GameEconomy.gold)
+	print("💰 Purchase: 5000 Gold added. New Balance: ", GameEconomy.gold)
 	
 	close()

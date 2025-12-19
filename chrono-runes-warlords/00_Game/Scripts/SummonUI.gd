@@ -1,45 +1,45 @@
 class_name SummonUI extends Control
 
-# --- UI REFERANSLARI ---
+# --- UI REFERENCES ---
 @export_group("System Refs")
 @export var btn_summon: Button
 @export var btn_back: Button
-@export var btn_claim: Button      # Kapat/Al butonu
+@export var btn_claim: Button      # Close/Claim button
 @export var result_card: Control
 @export var hero_label: Label      
 @export var hero_image: TextureRect 
-@export var shop_popup_scene: PackedScene # [NEW] Mağaza Sahnesi
+@export var shop_popup_scene: PackedScene # [NEW] Shop Scene
 
-# --- SES ---
+# --- AUDIO ---
 @export_group("Audio")
 @export var sfx_summon_success: AudioStream
 
-# --- VERİ HAVUZU ---
+# --- DATA POOL ---
 @export_group("Data")
 @export var possible_rewards: Array[Resource]
 
-# --- AYARLAR ---
+# --- SETTINGS ---
 var summon_cost: int = 100
 
 func _ready() -> void:
-	# Başlangıç ayarları
+	# Initial settings
 	if result_card: result_card.visible = false
 	
-	# Butonları bağla
+	# Connect buttons
 	if btn_summon: btn_summon.pressed.connect(_on_summon_pressed)
 	if btn_back: btn_back.pressed.connect(_on_back_pressed)
 	if btn_claim: btn_claim.pressed.connect(_on_claim_pressed)
 
 func _on_summon_pressed() -> void:
-	# 1. Havuz Kontrolü
+	# 1. Pool Check
 	if possible_rewards.is_empty():
-		push_error("⚠️ HATA: Inspector'da 'Possible Rewards' listesi boş!")
+		push_error("⚠️ ERROR: 'Possible Rewards' list is empty in Inspector!")
 		return
 
-	# 2. EKONOMİ KONTROLÜ
+	# 2. ECONOMY CHECK
 	if GameEconomy.spend_gold(summon_cost):
 		
-		# Ses Çal (Audio Manager ismin 'Audio' ise öyle kalsın)
+		# Play Sound (Keep as 'Audio' if Audio Manager name is correct)
 		if sfx_summon_success:
 			Audio.play_sfx(sfx_summon_success)
 			
@@ -51,12 +51,12 @@ func _on_summon_pressed() -> void:
 		_show_result_card()
 		
 	else:
-		# PARA YETMEDİ
-		print("❌ Yetersiz Bakiye! Cüzdan: ", GameEconomy.gold)
+		# INSUFFICIENT FUNDS
+		print("❌ Insufficient Balance! Wallet: ", GameEconomy.gold)
 		
 		# [CHANGED] Use GoldShopPopup if assigned
 		if shop_popup_scene:
-			print("🛒 Mağaza açılıyor...")
+			print("🛒 Opening Shop...")
 			var shop = shop_popup_scene.instantiate()
 			add_child(shop)
 			if shop.has_method("open"):
@@ -64,7 +64,7 @@ func _on_summon_pressed() -> void:
 				var missing = summon_cost - GameEconomy.gold
 				shop.open(missing)
 		else:
-			print("UYARI: Shop Popup Scene atanmamış!")
+			print("WARNING: Shop Popup Scene not assigned!")
 
 func _show_result_card() -> void:
 	if result_card:
@@ -72,16 +72,16 @@ func _show_result_card() -> void:
 		result_card.visible = true
 		result_card.scale = Vector2.ONE
 		
-		# 1. Karakter Seç
+		# 1. Pick Character
 		var data = possible_rewards.pick_random() as CharacterData
 		
-		# 2. GLOBAL ENVANTERE EKLE (Kritik Nokta)
+		# 2. ADD TO GLOBAL INVENTORY (Critical Point)
 		var refund = GameEconomy.add_hero(data)
 		
-		# 3. UI Güncelle
+		# 3. Update UI
 		if hero_label:
 			if refund > 0:
-				hero_label.text = "DÖNÜŞTÜRÜLDÜ: +%d ALTIN" % refund
+				hero_label.text = "CONVERTED: +%d GOLD" % refund
 				hero_label.add_theme_color_override("font_color", Color.YELLOW)
 			else:
 				hero_label.text = data.character_name 
@@ -90,10 +90,10 @@ func _show_result_card() -> void:
 		if hero_image:
 			hero_image.texture = data.portrait
 
-		print("🎲 Kazanılan: ", data.character_name)
+		print("🎲 Won: ", data.character_name)
 
 func _on_claim_pressed() -> void:
-	# Kartı kapat
+	# Close card
 	if result_card:
 		var tween = create_tween()
 		tween.tween_property(result_card, "scale", Vector2.ZERO, 0.2)\
@@ -101,10 +101,10 @@ func _on_claim_pressed() -> void:
 		tween.tween_callback(func(): result_card.visible = false)
 
 func _on_back_pressed() -> void:
-	print("🔙 Ana Menüye dönülüyor...")
+	print("🔙 Returning to Main Menu...")
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
-# Rengi belirleyen yardımcı fonksiyon
+# Helper function for color
 func _get_color_by_rarity(rarity_enum) -> Color:
 	match rarity_enum:
 		CharacterData.Rarity.COMMON:
