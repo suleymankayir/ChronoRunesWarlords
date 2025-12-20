@@ -8,11 +8,16 @@ var current_hp: int
 @onready var hp_bar: ProgressBar = $ProgressBar
 @onready var hp_text: Label = $ProgressBar/HPText
 @onready var visuals: Sprite2D = $Visuals
+@onready var status_container: HBoxContainer = $StatusContainer
 
 func _ready() -> void:
 	# Initial settings
 	current_hp = max_hp
 	update_ui()
+	
+	# Wait one frame ensuring data from save file (if any) is populated
+	await get_tree().process_frame
+	update_status_visuals()
 
 var stun_turns: int = 0
 var dot_turns: int = 0
@@ -41,6 +46,48 @@ func apply_status(type: String, turns: int, value: int = 0) -> void:
 	var tween = create_tween()
 	tween.tween_property(visuals, "scale", Vector2(1.2, 1.2), 0.1)
 	tween.tween_property(visuals, "scale", Vector2.ONE, 0.1)
+	
+	update_status_visuals()
+
+func update_status_visuals() -> void:
+	if not status_container: return
+	
+	# Clear existing
+	for child in status_container.get_children():
+		child.queue_free()
+
+	# Define Paths
+	var icon_stun_path = "res://01_Assets/Art/UI/Icons/icon_stun.png"
+	var icon_poison_path = "res://01_Assets/Art/UI/Icons/icon_poison.png"
+	var icon_break_path = "res://01_Assets/Art/UI/Icons/icon_break.png"
+
+	# Helper to create icon
+	var create_icon = func(path: String):
+		var icon = TextureRect.new()
+		var exists = FileAccess.file_exists(path)
+		
+		# DEBUG LOGGING
+		print("[Enemy] Checking icon: ", path, " | Exists: ", exists)
+		
+		if exists:
+			icon.texture = load(path)
+			icon.modulate = Color.WHITE # Clean original art
+		else:
+			# MISSING ASSET FALLBACK
+			icon.texture = preload("res://icon.svg")
+			icon.modulate = Color.RED # Bright RED to indicate error/missing
+			
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.custom_minimum_size = Vector2(48, 48)
+		
+		status_container.add_child(icon)
+		
+	if stun_turns > 0:
+		create_icon.call(icon_stun_path)
+	if dot_turns > 0:
+		create_icon.call(icon_poison_path)
+	if defense_break_turns > 0:
+		create_icon.call(icon_break_path)
 
 func process_turn_start() -> bool:
 	# 1. Apply DoT
@@ -62,12 +109,26 @@ func process_turn_start() -> bool:
 			visuals.modulate = Color.WHITE
 			print("ENEMY DEFENSE RESTORED")
 			
+	# Update Visuals after decrements (DoT/Def updates)
+	update_status_visuals()
+			
 	# 3. Check Stun (Stun prevents action, so check last)
 	if stun_turns > 0:
 		stun_turns -= 1
 		print("ENEMY IS STUNNED! Turns remaining: ", stun_turns)
-		if stun_turns <= 0:
-			visuals.modulate = Color.WHITE
+		
+		# CRITICAL UX FIX: If Stun reaches 0, we are still skipping THIS turn.
+		# So we keep the Modulate/Icon visible for this one last turn.
+		# We ONLY update visuals (remove icon) if there are still turns left (refreshing)
+		# or if we started at 0 (handled below).
+		
+		if stun_turns > 0:
+			update_status_visuals()
+		else:
+			# Stun is 0, but we want to KEEP the visual for this skipped turn.
+			# Do NOT call update_status_visuals() which would remove it.
+			pass
+			
 		return true # Action Skipped
 			
 	return false # Can act

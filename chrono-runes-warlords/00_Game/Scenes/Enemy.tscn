@@ -26,3 +26,11 @@ offset_left = 92.0
 offset_top = 2.0
 offset_right = 132.0
 offset_bottom = 25.0
+
+[node name="StatusContainer" type="HBoxContainer" parent="."]
+offset_left = -21.0
+offset_top = -163.0
+offset_right = 19.0
+offset_bottom = -123.0
+theme_override_constants/separation = 5
+alignment = 1

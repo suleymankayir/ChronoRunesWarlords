@@ -1,14 +1,11 @@
-[gd_scene load_steps=17 format=3 uid="uid://4wbabeo847r3"]
+[gd_scene load_steps=16 format=3 uid="uid://4wbabeo847r3"]
 
 [ext_resource type="Script" uid="uid://bkmhg754iqdm6" path="res://00_Game/Scripts/MainGame.gd" id="1_5i4q3"]
 [ext_resource type="Script" uid="uid://bhyu20arjme42" path="res://00_Game/Scripts/BoardManager.gd" id="2_ip4sp"]
-[ext_resource type="PackedScene" uid="uid://cqfbtpfokd7hg" path="res://00_Game/Scenes/GameOverUI.tscn" id="2_twcqs"]
 [ext_resource type="PackedScene" uid="uid://btkhd3p5x03cy" path="res://00_Game/Scenes/GamePiece.tscn" id="3_kyhy4"]
-[ext_resource type="PackedScene" uid="uid://dd565hagwlab0" path="res://00_Game/Scenes/BattleHero.tscn" id="4_j0l0h"]
 [ext_resource type="PackedScene" uid="uid://b5b2nihetuer7" path="res://00_Game/Scenes/FloatingText.tscn" id="4_n52v8"]
 [ext_resource type="Shader" uid="uid://b5a4er0ya7wc3" path="res://00_Game/Scenes/MainGame.gdshader" id="4_ql6ba"]
 [ext_resource type="PackedScene" uid="uid://ba2sek45nhbyp" path="res://00_Game/Scenes/Enemy.tscn" id="5_mbifn"]
-[ext_resource type="PackedScene" uid="uid://bispbtnodtp7u" path="res://00_Game/Scenes/PauseMenu.tscn" id="5_vasob"]
 [ext_resource type="PackedScene" uid="uid://cwcohovykweop" path="res://00_Game/Scenes/VFX_Explosion.tscn" id="7_vky4x"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_j0l0h"]
@@ -28,6 +25,13 @@ noise = SubResource("FastNoiseLite_vky4x")
 color_ramp = SubResource("Gradient_ql6ba")
 seamless = true
 
+[sub_resource type="SystemFont" id="SystemFont_vasob"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_xr6p1"]
+font = SubResource("SystemFont_vasob")
+font_size = 32
+outline_size = 2
+
 [sub_resource type="Gradient" id="Gradient_vky4x"]
 colors = PackedColorArray(0.7210572, 0.6171627, 0.9964954, 1, 0.8656353, 0.6926587, 1, 1)
 
@@ -36,15 +40,9 @@ gradient = SubResource("Gradient_vky4x")
 height = 32
 fill = 2
 
-[node name="MainGame" type="Node2D" node_paths=PackedStringArray("heroes_container", "camera")]
+[node name="MainGame" type="Node2D"]
 texture_filter = 1
 script = ExtResource("1_5i4q3")
-game_over_scene = ExtResource("2_twcqs")
-floating_text_scene = ExtResource("4_n52v8")
-battle_hero_scene = ExtResource("4_j0l0h")
-heroes_container = NodePath("HeroesContainer")
-pause_menu_scene = ExtResource("5_vasob")
-camera = NodePath("Camera2D")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]
 process_mode = 3
@@ -82,7 +80,15 @@ floating_text_scene = ExtResource("4_n52v8")
 vfx_explosion_scene = ExtResource("7_vky4x")
 
 [node name="Enemy" parent="." instance=ExtResource("5_mbifn")]
-position = Vector2(359, 178)
+position = Vector2(358, 167)
+
+[node name="WaveLabel" type="Label" parent="."]
+offset_left = 292.0
+offset_top = 262.0
+offset_right = 438.0
+offset_bottom = 307.0
+text = "WAVE 1/3"
+label_settings = SubResource("LabelSettings_xr6p1")
 
 [node name="UILayer" type="CanvasLayer" parent="."]
 process_mode = 3

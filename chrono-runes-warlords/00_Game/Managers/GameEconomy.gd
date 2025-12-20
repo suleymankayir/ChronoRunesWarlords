@@ -10,6 +10,11 @@ signal high_score_updated(new_score)
 # --- CONSTANTS ---
 const SAVE_PATH: String = "user://save_game.json"
 const MAX_TEAM_SIZE: int = 3
+const HERO_DATABASE = {
+	"hero_fire": "res://00_Game/Resources/Characters/Fire_Warrior.tres",
+	"hero_nature_druid": "res://00_Game/Resources/Characters/hero_nature_druid.tres",
+	"hero_dark": "res://00_Game/Resources/Characters/Dark_Necromancer.tres"
+}
 
 # --- VARIABLES ---
 var gold: int = 0
@@ -25,24 +30,38 @@ var character_db: Dictionary = {}
 var max_unlocked_level: int = 1
 var current_map_level: int = 1
 
+# BATTLE PERSISTENCE VARIABLES
+var current_enemy_stun_turns: int = 0
+var current_enemy_dot_turns: int = 0
+var current_enemy_break_turns: int = 0
+
 func _ready() -> void:
 	_load_character_database()
 	if FileAccess.file_exists(SAVE_PATH):
 		load_game()
-		
-	# FORCE ADD FOR TESTING (Fix for old saves)
-	if not "hero_nature_druid" in owned_heroes:
-		owned_heroes.append("hero_nature_druid")
-		print("Force added hero_nature_druid to inventory")
-		
-	if not "hero_nature_druid" in selected_team_ids and selected_team_ids.size() < MAX_TEAM_SIZE:
-		selected_team_ids.append("hero_nature_druid")
-		print("Force added hero_nature_druid to team")
 	
-	# Explicitly ensure it's in the database if dynamic loading missed it (Fallback)
-	if not character_db.has("hero_nature_druid"):
-		var res = load("res://00_Game/Resources/Characters/hero_nature_druid.tres")
-		if res: character_db["hero_nature_druid"] = res
+	# --- FORCE DEBUG TEAM (DPS + Stun + DoT) ---
+	# Ensure heroes are loaded in DB
+	for id in HERO_DATABASE:
+		if not character_db.has(id):
+			var res = load(HERO_DATABASE[id])
+			if res: 
+				character_db[id] = res
+	
+	# Force Inventory and Team - ENSURE STRICT ORDER
+	owned_heroes = ["hero_fire", "hero_nature_druid", "hero_dark"]
+	selected_team_ids = ["hero_fire", "hero_nature_druid", "hero_dark"]
+	
+	# Initialize levels if missing
+	for id in owned_heroes:
+		if not hero_levels.has(id):
+			hero_levels[id] = 1
+			
+	print("DEBUG: TEAM FORCED -> ", selected_team_ids)
+	
+	# Emit updates to sync UI
+	inventory_updated.emit()
+	team_updated.emit()
 
 func start_new_game() -> void:
 	print(">>> STARTING NEW GAME (RAM + DISK)...")
@@ -50,12 +69,16 @@ func start_new_game() -> void:
 	# 1. Force Set RAM Variables First
 	gold = 200
 	gems = 50
-	owned_heroes = ["hero_fire", "hero_light_mage", "hero_nature_druid"]
-	selected_team_ids = ["hero_fire", "hero_light_mage", "hero_nature_druid"]
+	owned_heroes = ["hero_fire", "hero_nature_druid", "hero_dark"]
+	selected_team_ids = ["hero_fire", "hero_nature_druid", "hero_dark"]
 	hero_levels = {} 
 	active_battle_snapshot = {}
 	max_unlocked_level = 1
 	current_map_level = 1
+	
+	current_enemy_stun_turns = 0
+	current_enemy_dot_turns = 0
+	current_enemy_break_turns = 0
 	
 	# Initialize levels for owned heroes
 	for h in owned_heroes:
@@ -80,7 +103,11 @@ func save_game() -> void:
 		"high_score": high_score,
 
 		"battle_state": active_battle_snapshot,
-		"max_unlocked_level": max_unlocked_level
+		"max_unlocked_level": max_unlocked_level,
+		
+		"enemy_stun": current_enemy_stun_turns,
+		"enemy_dot": current_enemy_dot_turns,
+		"enemy_break": current_enemy_break_turns
 	}
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -102,6 +129,10 @@ func load_game() -> bool:
 				gems = int(data.get("gems", 0))
 				high_score = int(data.get("high_score", 0))
 				max_unlocked_level = int(data.get("max_unlocked_level", 1))
+				
+				current_enemy_stun_turns = int(data.get("enemy_stun", 0))
+				current_enemy_dot_turns = int(data.get("enemy_dot", 0))
+				current_enemy_break_turns = int(data.get("enemy_break", 0))
 				
 				var loaded_heroes = data.get("owned_heroes", [])
 				if typeof(loaded_heroes) == TYPE_ARRAY:
