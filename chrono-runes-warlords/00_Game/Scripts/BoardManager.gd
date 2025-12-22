@@ -3,12 +3,21 @@ class_name BoardManager extends Node2D
 # Settings
 @export var width: int = 7
 @export var height: int = 8
-@export var tile_size: int = 80
+@export var tile_size: int = 60
 @export var piece_scene: PackedScene
 @export var floating_text_scene: PackedScene
 @export var vfx_explosion_scene: PackedScene
 
 var piece_types: Array[String] = ["red", "blue", "green", "yellow", "purple"]
+
+# PRELOAD TEXTURES (NEW PATHS)
+var gem_textures = {
+	"red": preload("res://01_Assets/Art/Gems/gem_red.png"),
+	"blue": preload("res://01_Assets/Art/Gems/gem_blue.png"),
+	"green": preload("res://01_Assets/Art/Gems/gem_green.png"),
+	"yellow": preload("res://01_Assets/Art/Gems/gem_yellow.png"),
+	"purple": preload("res://01_Assets/Art/Gems/gem_purple.png")
+}
 
 signal turn_finished 
 signal damage_dealt(total_damage: int, damage_type: String, match_count: int, combo_count: int)
@@ -38,11 +47,17 @@ func _ready() -> void:
 		push_error("WARNING: 'piece_scene' not assigned to BoardManager!")
 		return
 		
+	# TEXTURE DEBUG CHECK
+	for type in gem_textures:
+		var tex = gem_textures[type]
+		if not tex:
+			printerr("MISSING TEXTURE for: " + type)
+		
 	var total_w = width * tile_size
 	var total_h = height * tile_size
 	start_pos = Vector2(
 		(720 - total_w) / 2 + (tile_size / 2), 
-		(1280 - total_h) / 2 + (tile_size / 2)
+		340 + (tile_size / 2)
 	)
 	
 	# Hint Timer Setup
@@ -148,17 +163,40 @@ func load_board_data(data: Array) -> void:
 # --- CORE LOGIC ---
 
 func _update_piece_visual(piece: GamePiece) -> void:
-	match piece.type:
-		"red": 
-			piece.set_visual(preload("res://icon.svg"), Color("#ff4d4d"), "⚔️") 
-		"blue": 
-			piece.set_visual(preload("res://icon.svg"), Color("#4da6ff"), "💧") 
-		"green": 
-			piece.set_visual(preload("res://icon.svg"), Color("#5cd65c"), "🌿") 
-		"yellow": 
-			piece.set_visual(preload("res://icon.svg"), Color("#ffd11a"), "⚡") 
-		"purple": 
-			piece.set_visual(preload("res://icon.svg"), Color("#ac00e6"), "💀")
+	# Correct node name strictly confirmed: Sprite
+	var sprite = piece.get_node_or_null("Sprite")
+	
+	if not sprite:
+		printerr("ERROR: GamePiece missing 'Sprite' node! Piece Type: ", piece.type)
+		return
+
+	if gem_textures.has(piece.type):
+		var tex = gem_textures[piece.type]
+		if tex:
+			sprite.texture = tex
+			sprite.modulate = Color.WHITE # Reset unexpected modulation
+		else:
+			# FALLBACK: Missing texture resource (but key exists)
+			printerr("TEXTURE NULL: ", piece.type, " Using Color Fallback.")
+			sprite.texture = preload("res://icon.svg")
+			sprite.modulate = _get_debug_color(piece.type)
+	else:
+		# FALLBACK: Unknown type
+		printerr("UNKNOWN TYPE: ", piece.type)
+		sprite.texture = preload("res://icon.svg")
+		sprite.modulate = Color.WHITE
+		
+	# FORCE SCALE
+	sprite.scale = Vector2(0.40, 0.40)
+
+func _get_debug_color(type: String) -> Color:
+	match type:
+		"red": return Color.RED
+		"blue": return Color.BLUE
+		"green": return Color.GREEN
+		"yellow": return Color.YELLOW
+		"purple": return Color.MAGENTA
+	return Color.WHITE
 
 func grid_to_pixel(x: int, y: int) -> Vector2:
 	return Vector2(
@@ -228,9 +266,6 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x + 5, 0.05)
 		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x - 5, 0.05)
 		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x, 0.05)
-		# Shake Piece 2 (Parallel, but we just chain it or use parallel on new tween. 
-		# Let's simple chain or just do it on p1 then p2 is weird. Better: parallel shake both manually or sequentially)
-		# Actually, simple shake is enough.
 		
 		await shake_tween.finished
 		
@@ -330,7 +365,9 @@ func damage_piece(piece: GamePiece) -> void:
 		var vfx = vfx_explosion_scene.instantiate() as VFX_Explosion
 		add_child(vfx)
 		vfx.z_index = 20
-		vfx.setup(piece.position, piece.get_node("Sprite2D").modulate)
+		# Try to get color from texture if possible, or just default to white/piece type color
+		var sprite = piece.get_node_or_null("Sprite")
+		vfx.setup(piece.position, sprite.modulate if sprite else Color.WHITE)
 
 	var tween = create_tween()
 	tween.tween_property(piece, "scale", Vector2.ZERO, 0.2)
@@ -640,21 +677,7 @@ func transmute_pieces(count: int, target_color: String) -> void:
 	Audio.play_sfx("match")
 	spawn_floating_text("ALCHEMY!", targets.size(), final_color, get_viewport_rect().get_center())
 	
-	# Visual definitions for explicit update
-	var base_tex = preload("res://icon.svg")
-	var visual_data = {
-		"red": {"color": Color("#ff4d4d"), "symbol": "⚔️"},
-		"blue": {"color": Color("#4da6ff"), "symbol": "💧"},
-		"green": {"color": Color("#5cd65c"), "symbol": "🌿"},
-		"yellow": {"color": Color("#ffd11a"), "symbol": "⚡"},
-		"purple": {"color": Color("#ac00e6"), "symbol": "💀"}
-	}
-	
-	# Check for key existence early
-	if not visual_data.has(final_color):
-		print("ERROR: Texture NOT found for key: ", final_color)
-	
-	# 1. Apply changes visually and logically
+	# 1. Apply changes visually and logically (Restored Loop)
 	for p in targets:
 		p.type = final_color
 		
@@ -664,15 +687,7 @@ func transmute_pieces(count: int, target_color: String) -> void:
 		
 		# Explicitly update visual in callback
 		t.tween_callback(func(): 
-			if visual_data.has(final_color):
-				var data = visual_data[final_color]
-				p.set_visual(base_tex, data.color, data.symbol)
-				# Force modulation update just in case set_visual missed it or override
-				p.modulate = Color.WHITE # Reset unexpected modulation first
-				p.get_node("Sprite2D").modulate = data.color
-			else:
-				print("Fallback visual update for ", final_color)
-				_update_piece_visual(p)
+			_update_piece_visual(p)
 		)
 		
 		t.tween_property(p, "scale", Vector2.ONE, 0.1)

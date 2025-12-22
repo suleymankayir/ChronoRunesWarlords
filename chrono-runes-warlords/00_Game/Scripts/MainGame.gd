@@ -25,6 +25,12 @@ var current_level: int = 1
 var current_wave: int = 1
 const MAX_WAVES: int = 3
 
+var enemy_textures = [
+	preload("res://01_Assets/Art/Enemies/enemy_goblin.png"),
+	preload("res://01_Assets/Art/Enemies/enemy_orc.png"),
+	preload("res://01_Assets/Art/Enemies/enemy_boss.png")
+]
+
 var player_max_hp: int = 1000
 var player_current_hp: int = 1000
 var current_score: int = 0
@@ -41,6 +47,16 @@ var leader_data = null
 
 # --- INITIALIZATION ---
 func _ready() -> void:
+	if wave_label: 
+		wave_label.visible = false
+
+	# Editor-based layout preferred
+	if heroes_container:
+		pass # Layout handled in Editor
+		
+	if player_hp_bar:
+		pass
+
 	if Audio.bg_music:
 		Audio.play_music(Audio.bg_music)
 		
@@ -74,7 +90,7 @@ func _ready() -> void:
 		if board_manager: board_manager.spawn_board()
 		
 	update_player_ui()
-	update_wave_ui()
+	show_wave_popup()
 	_setup_battle_heroes()
 	
 	# Get Leader
@@ -100,7 +116,22 @@ func spawn_next_enemy() -> void:
 		
 	var new_enemy = scene.instantiate()
 	add_child(new_enemy)
-	new_enemy.position = Vector2(360, 250)
+	new_enemy.position = Vector2(360, 200)
+	if new_enemy.has_method("update_home_position"):
+		new_enemy.update_home_position()
+	
+	# 1. Texture & Visuals
+	var tex_index = min(current_wave - 1, enemy_textures.size() - 1)
+	var sprite = new_enemy.get_node_or_null("Visuals") 
+	
+	if sprite:
+		sprite.texture = enemy_textures[tex_index]
+		
+	# 2. Scaling Polish
+	if current_wave == 3: # Boss
+		new_enemy.scale = Vector2(0.7, 0.7)
+	else:
+		new_enemy.scale = Vector2(0.5, 0.5)
 	
 	calculate_and_apply_enemy_stats(new_enemy)
 	
@@ -145,15 +176,12 @@ func _on_enemy_died() -> void:
 		current_wave += 1
 		var center = get_viewport_rect().get_center()
 		spawn_status_text("WAVE CLEARED!", Color.GREEN, center)
-		update_wave_ui()
+		show_wave_popup()
 		
-		# Save Progress
-		_save_current_battle_state()
-		
-		if board_manager: board_manager.is_processing_move = true
-		await get_tree().create_timer(1.0).timeout
-		
+
 		spawn_next_enemy()
+		# Save Progress AFTER spawning new enemy to avoid saving "Dead" state
+		_save_current_battle_state()
 	else:
 		# LEVEL CLEARED
 		GameEconomy.complete_current_level()
@@ -179,6 +207,14 @@ func show_victory_screen() -> void:
 	if board_manager: board_manager.is_processing_move = true
 
 func _on_victory_claim_pressed() -> void:
+	# 1. Increment Level
+	GameEconomy.current_map_level += 1
+	
+	# 2. Critical: Clear Saved Battle State
+	GameEconomy.clear_battle_snapshot()
+	current_wave = 1
+	
+	# 3. Reload Scene
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
@@ -303,6 +339,17 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	if is_crit: text = "CRIT " + text
 	
 	spawn_status_text(text, color, enemy.global_position)
+	
+	# Match Count Text
+	if match_count >= 5:
+		spawn_status_text("AMAZING!", Color.MAGENTA, enemy.global_position + Vector2(0, -60), 2.0)
+	elif match_count == 4:
+		spawn_status_text("GREAT!", Color.CYAN, enemy.global_position + Vector2(0, -40), 1.5)
+		
+	# Combo Count Text
+	if combo_count > 1:
+		spawn_status_text("COMBO x%d" % combo_count, Color.GOLD, enemy.global_position + Vector2(0, -80), 1.2)
+	
 	current_score += final_damage
 	
 	await get_tree().create_timer(0.2).timeout
@@ -358,10 +405,17 @@ func update_player_ui() -> void:
 	if player_hp_text:
 		player_hp_text.text = "%d / %d" % [player_current_hp, player_max_hp]
 
-func update_wave_ui() -> void:
+func show_wave_popup() -> void:
 	# Safe Access
 	if wave_label:
 		wave_label.text = "WAVE %d/%d" % [current_wave, MAX_WAVES]
+		wave_label.visible = true
+		wave_label.modulate.a = 1.0 # Reset opacity
+		
+		var tween = create_tween()
+		tween.tween_interval(2.0) # Stay visible for 2 seconds
+		tween.tween_property(wave_label, "modulate:a", 0.0, 0.5) # Fade out over 0.5s
+		tween.tween_callback(func(): wave_label.visible = false)
 
 func heal_player(amount: int) -> void:
 	player_current_hp = min(player_current_hp + amount, player_max_hp)
@@ -370,11 +424,12 @@ func heal_player(amount: int) -> void:
 	if player_hp_bar:
 		spawn_status_text("+%d HP" % amount, Color.GREEN, player_hp_bar.global_position)
 
-func spawn_status_text(text: String, color: Color, pos: Vector2) -> void:
+func spawn_status_text(text: String, color: Color, pos: Vector2, scale: float = 1.0) -> void:
 	var scene = load(floating_text_scene_path)
 	if not scene: return
 	
 	var ft = scene.instantiate()
+	ft.scale = Vector2(scale, scale)
 	add_child(ft)
 	var jitter = Vector2(randf_range(-30, 30), randf_range(-30, 30))
 	ft.global_position = pos + jitter
@@ -526,5 +581,5 @@ func _load_battle_state() -> void:
 	if board_manager:
 		board_manager.load_board_data(bdata)
 	
-	update_wave_ui()
+	show_wave_popup()
 	start_player_turn()

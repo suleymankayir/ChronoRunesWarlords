@@ -13,10 +13,10 @@ modulate = Color(0.7125805, 0.17446586, 0.07228469, 1)
 texture = ExtResource("1_nb7h2")
 
 [node name="ProgressBar" type="ProgressBar" parent="."]
-offset_left = -112.0
-offset_top = -106.0
-offset_right = 109.0
-offset_bottom = -79.0
+offset_left = -110.0
+offset_top = -219.0
+offset_right = 111.0
+offset_bottom = -192.0
 value = 50.0
 show_percentage = false
 
@@ -28,9 +28,9 @@ offset_right = 132.0
 offset_bottom = 25.0
 
 [node name="StatusContainer" type="HBoxContainer" parent="."]
-offset_left = -21.0
-offset_top = -163.0
-offset_right = 19.0
-offset_bottom = -123.0
+offset_left = -20.0
+offset_top = -267.0
+offset_right = 20.0
+offset_bottom = -227.0
 theme_override_constants/separation = 5
 alignment = 1

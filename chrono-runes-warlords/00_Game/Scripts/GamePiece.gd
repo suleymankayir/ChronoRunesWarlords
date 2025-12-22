@@ -16,7 +16,7 @@ var initial_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
 	# Store the initial scale for juice calculations
-	initial_scale = $Sprite2D.scale
+	initial_scale = $Sprite.scale
 	
 	# Connect Area2D's own signal to itself
 	# This detects clicks on the piece.
@@ -24,8 +24,8 @@ func _ready() -> void:
 
 # Helper function to change visual
 func set_visual(texture: Texture2D, color_tint: Color, symbol: String) -> void:
-	$Sprite2D.texture = texture
-	$Sprite2D.modulate = color_tint
+	$Sprite.texture = texture
+	$Sprite.modulate = color_tint
 	$Label.text = symbol
 
 # When ordered to go somewhere (sliding with Tween)
@@ -67,7 +67,7 @@ func _start_drag(pos: Vector2) -> void:
 	
 	var tween = create_tween()
 	# Use relative scale based on initial_scale
-	tween.tween_property($Sprite2D, "scale", initial_scale * 1.2, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property($Sprite, "scale", initial_scale * 1.2, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _end_drag() -> void:
 	if not is_dragging: return
@@ -80,7 +80,7 @@ func _end_drag() -> void:
 	
 	var tween = create_tween()
 	# Return to initial storage scale
-	tween.tween_property($Sprite2D, "scale", initial_scale, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property($Sprite, "scale", initial_scale, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 # Check if dragging continues every frame (PHASE 2: Dragging)
 func _process(_delta: float) -> void:

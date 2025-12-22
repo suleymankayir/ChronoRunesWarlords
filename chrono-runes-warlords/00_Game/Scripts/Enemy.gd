@@ -4,6 +4,9 @@ signal died # Signal when dead
 @export var vfx_hit_scene: PackedScene
 @export var max_hp: int = 20
 var current_hp: int
+var current_base_color: Color = Color.WHITE
+# Replaces start_position logic for more robustness
+var home_position: Vector2 = Vector2.ZERO
 
 @onready var hp_bar: ProgressBar = $ProgressBar
 @onready var hp_text: Label = $ProgressBar/HPText
@@ -12,12 +15,20 @@ var current_hp: int
 
 func _ready() -> void:
 	# Initial settings
+	# Wait for MainGame to set position, but set default here
+	home_position = position 
 	current_hp = max_hp
 	update_ui()
 	
 	# Wait one frame ensuring data from save file (if any) is populated
 	await get_tree().process_frame
 	update_status_visuals()
+
+	update_status_visuals()
+
+func update_home_position() -> void:
+	home_position = position
+	print("Enemy Home Position Set: ", home_position)
 
 var stun_turns: int = 0
 var dot_turns: int = 0
@@ -146,6 +157,8 @@ func setup_element(new_type: String) -> void:
 			"yellow": visuals.modulate = Color("#ffd11a")
 			"purple": visuals.modulate = Color("#ac00e6")
 			_: visuals.modulate = Color.WHITE
+			
+	current_base_color = visuals.modulate
 
 
 func take_damage(amount: int, element_type: String) -> void:
@@ -182,7 +195,7 @@ func play_hit_animation() -> void:
 	
 	# 1. Renk değişimi (Beyaza parlayıp geri dönme - Flash Effect)
 	visuals.modulate = Color(10, 10, 10) # Çok parlak beyaz (Glow varsa parlar)
-	tween.tween_property(visuals, "modulate", Color.RED, 0.1) # Eski rengine (Kırmızı) dön
+	tween.tween_property(visuals, "modulate", current_base_color, 0.1) # Dönüş: Orijinal renk
 	
 	# 2. Titreme (Shake)
 	var shake_strength = 10.0
@@ -218,7 +231,7 @@ func attack_player() -> void:
 	tween.tween_callback(func(): _deal_damage_to_player())
 	
 	# 3. Return to position
-	tween.tween_property(self, "position", original_pos, 0.4)
+	tween.tween_property(self, "position", home_position, 0.4)
 	
 	# Notify when animation finishes
 	await tween.finished
