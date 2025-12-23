@@ -186,8 +186,16 @@ func _update_piece_visual(piece: GamePiece) -> void:
 		sprite.texture = preload("res://icon.svg")
 		sprite.modulate = Color.WHITE
 		
-	# FORCE SCALE
-	sprite.scale = Vector2(0.40, 0.40)
+	# DYNAMIC SCALING
+	if sprite.texture:
+		var tex_size = sprite.texture.get_size()
+		# Target size is 80% of the tile size
+		var target_size = tile_size * 0.8
+		# Calculate scale factor based on the largest dimension to fit within target box
+		var scale_factor = target_size / max(tex_size.x, tex_size.y)
+		sprite.scale = Vector2(scale_factor, scale_factor)
+	else:
+		sprite.scale = Vector2(0.40, 0.40)
 
 func _get_debug_color(type: String) -> Color:
 	match type:
