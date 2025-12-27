@@ -25,6 +25,7 @@ var hero_levels: Dictionary = {}
 var high_score: int = 0
 var active_battle_snapshot: Dictionary = {} # STORE BATTLE STATE HERE
 var character_db: Dictionary = {}
+var cleared_levels: Array = []  # ANTI-FARMING: Track first-time clears
 
 # --- NEW VARIABLES ---
 var max_unlocked_level: int = 1
@@ -64,6 +65,7 @@ func start_new_game() -> void:
 	selected_team_ids = ["hero_fire", "hero_nature_druid", "hero_dark"]
 	hero_levels = {} 
 	active_battle_snapshot = {}
+	cleared_levels = []  # ANTI-FARMING: Reset cleared levels
 	max_unlocked_level = 1
 	current_map_level = 1
 	
@@ -95,6 +97,7 @@ func save_game() -> void:
 
 		"battle_state": active_battle_snapshot,
 		"max_unlocked_level": max_unlocked_level,
+		"cleared_levels": cleared_levels,  # ANTI-FARMING: Save cleared levels
 		
 		"enemy_stun": current_enemy_stun_turns,
 		"enemy_dot": current_enemy_dot_turns,
@@ -141,6 +144,11 @@ func load_game() -> bool:
 				var loaded_battle = data.get("battle_state", {})
 				if typeof(loaded_battle) == TYPE_DICTIONARY:
 					active_battle_snapshot = loaded_battle
+				
+				# ANTI-FARMING: Load cleared levels
+				var loaded_cleared = data.get("cleared_levels", [])
+				if typeof(loaded_cleared) == TYPE_ARRAY:
+					cleared_levels = loaded_cleared
 
 				# Emit Signals
 				gold_updated.emit(gold)
@@ -154,6 +162,10 @@ func load_game() -> bool:
 	return false
 
 func complete_current_level() -> void:
+	# ANTI-FARMING: Track first clear
+	if current_map_level not in cleared_levels:
+		cleared_levels.append(current_map_level)
+		
 	# Progression Logic
 	if current_map_level == max_unlocked_level:
 		max_unlocked_level += 1
@@ -165,6 +177,10 @@ func start_level_from_map(level_id: int) -> void:
 	current_map_level = level_id
 	clear_battle_snapshot()
 	save_game()
+
+# ANTI-FARMING: Check if level has been cleared before
+func is_level_first_clear(level: int) -> bool:
+	return level not in cleared_levels
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:

@@ -31,6 +31,7 @@ func update_home_position() -> void:
 	print("Enemy Home Position Set: ", home_position)
 
 var stun_turns: int = 0
+var stun_immunity_turns: int = 0  # BALANCE: Prevents perma-stun exploit
 var dot_turns: int = 0
 var dot_damage: int = 0
 var defense_break_turns: int = 0
@@ -39,7 +40,15 @@ var defense_multiplier: float = 1.0
 func apply_status(type: String, turns: int, value: int = 0) -> void:
 	match type:
 		"stun":
+			# BALANCE: Check immunity to prevent perma-stun
+			if stun_immunity_turns > 0:
+				if get_parent().has_method("spawn_status_text"):
+					get_parent().spawn_status_text("IMMUNE!", Color.ORANGE, global_position + Vector2(0, -50))
+				print("Enemy is immune to stun! Cooldown: ", stun_immunity_turns)
+				return
+			
 			stun_turns = turns
+			stun_immunity_turns = 3  # Immune for 3 turns after stun ends
 			visuals.modulate = Color(0.2, 0.2, 1.0) # Blue tint for Freeze
 			print("ENEMY STUNNED for ", turns, " turns!")
 		"dot":
@@ -101,6 +110,12 @@ func update_status_visuals() -> void:
 		create_icon.call(icon_break_path)
 
 func process_turn_start() -> bool:
+	# 0. Decrement stun immunity
+	if stun_immunity_turns > 0:
+		stun_immunity_turns -= 1
+		if stun_immunity_turns == 0:
+			print("Enemy stun immunity expired!")
+	
 	# 1. Apply DoT
 	if dot_turns > 0:
 		take_damage(dot_damage, "dot")

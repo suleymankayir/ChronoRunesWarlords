@@ -45,6 +45,10 @@ var is_level_transitioning: bool = false
 var enemy: Node = null
 var leader_data = null
 
+# SAVE OPTIMIZATION: Throttle auto-saves
+var turns_since_last_save: int = 0
+const SAVE_INTERVAL: int = 3  # Save every 3 turns to prevent lag
+
 # --- INITIALIZATION ---
 func _ready() -> void:
 	if wave_label: 
@@ -165,9 +169,13 @@ func _on_enemy_died() -> void:
 	is_level_transitioning = true
 	Audio.play_sfx("victory")
 	
-	# Rewards
-	var gold_reward = 100 * current_level
-	heal_player(int(player_max_hp * 0.2))
+	# ANTI-FARMING: Reduce rewards for replays
+	var base_gold = 100 * current_level
+	var is_first_clear = GameEconomy.is_level_first_clear(current_level)
+	var gold_multiplier = 1.0 if is_first_clear else 0.5
+	var gold_reward = int(base_gold * gold_multiplier)
+	
+	heal_player(int(player_max_hp * 0.10))  # BALANCE: Reduced from 0.2 to make attrition meaningful
 	gold_earned_this_session += gold_reward
 	GameEconomy.add_gold(gold_reward)
 	
@@ -176,6 +184,11 @@ func _on_enemy_died() -> void:
 		current_wave += 1
 		var center = get_viewport_rect().get_center()
 		spawn_status_text("WAVE CLEARED!", Color.GREEN, center)
+		
+		# ANTI-FARMING: Show first clear bonus
+		if is_first_clear and current_wave == 2:  # Show once per level
+			spawn_status_text("FIRST CLEAR BONUS!", Color.GOLD, center + Vector2(0, -60))
+		
 		show_wave_popup()
 		
 
@@ -219,13 +232,15 @@ func _on_victory_claim_pressed() -> void:
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MapScene.tscn")
 
 func calculate_and_apply_enemy_stats(enemy_node: Node) -> void:
-	var base_hp = 500 + (current_level * 50) + (current_wave * 100)
-	var dmg = 40 + (current_level * 5)
+	# BALANCE: Smoother scaling with sqrt for HP, slower damage growth
+	var level_factor = sqrt(current_level) * 200.0
+	var base_hp = 500 + int(level_factor) + (current_wave * 100)
+	var dmg = 40 + (current_level * 4)  # Reduced from 5 to 4
 	
-	# Boss Wave?
-	if current_level % 5 == 0 and current_wave == MAX_WAVES:
-		base_hp *= 2
-		dmg *= 1.5
+	# Boss Wave? (Every 3 levels instead of 5, reduced multipliers)
+	if current_level % 3 == 0 and current_wave == MAX_WAVES:
+		base_hp = int(base_hp * 1.8)  # Reduced from 2.0
+		dmg = int(dmg * 1.4)  # Reduced from 1.5
 		enemy_node.scale = Vector2(1.5, 1.5)
 	
 	if "max_hp" in enemy_node: enemy_node.max_hp = base_hp
@@ -235,9 +250,14 @@ func calculate_and_apply_enemy_stats(enemy_node: Node) -> void:
 # --- TURN & COMBAT LOGIC ---
 
 func _on_board_settled() -> void:
-	_save_current_battle_state()
-	GameEconomy.save_game()
-	print("Auto-saved after turn.")
+	turns_since_last_save += 1
+	
+	# SAVE OPTIMIZATION: Only save every N turns (throttle)
+	if turns_since_last_save >= SAVE_INTERVAL:
+		_save_current_battle_state()
+		GameEconomy.save_game()
+		print("Auto-saved after ", turns_since_last_save, " turns.")
+		turns_since_last_save = 0
 	
 	is_player_turn = false
 	if board_manager: board_manager.is_processing_move = true
@@ -272,7 +292,10 @@ func _start_enemy_turn() -> void:
 func _on_enemy_attack_finished() -> void:
 	take_player_damage(current_enemy_damage)
 	start_player_turn()
+	
+	# SAVE OPTIMIZATION: Save after enemy turn (critical event)
 	_save_current_battle_state()
+	turns_since_last_save = 0  # Reset counter
 
 func start_player_turn() -> void:
 	is_player_turn = true
@@ -384,7 +407,7 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 			
 		CharacterData.SkillType.BUFF_ATTACK:
 			active_buff_multiplier = 1.5
-			buff_remaining_turns = 3
+			buff_remaining_turns = 4  # BALANCE: Increased from 3 to compensate for slower mana
 			spawn_status_text("BUFF UP!", Color.GOLD, player_hp_bar.global_position)
 			
 		CharacterData.SkillType.STUN:
@@ -400,8 +423,10 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 			enemy.apply_status("def_break", 3)
 			spawn_status_text("BREAK!", Color.YELLOW, enemy.global_position)
 	
+	# SAVE OPTIMIZATION: Save after skill use (critical event)
 	_save_current_battle_state()
 	GameEconomy.save_game()
+	turns_since_last_save = 0  # Reset counter
 
 # --- UI & HELPERS ---
 
@@ -459,6 +484,7 @@ func show_pause_menu() -> void:
 	get_tree().paused = true
 
 func _on_pause_quit() -> void:
+	# SAVE OPTIMIZATION: Always save when quitting (critical event)
 	_save_current_battle_state()
 	GameEconomy.save_game()
 	await get_tree().create_timer(0.1).timeout
@@ -469,7 +495,7 @@ func distribute_mana(type: String, count: int) -> void:
 	for h in heroes_container.get_children():
 		if h.hero_data and _get_element_color(h.hero_data.element_text) == type:
 			if h.has_method("add_mana"):
-				h.add_mana(count * 15)
+				h.add_mana(count * 10)  # BALANCE: Reduced from 15 to slow ultimate charge
 
 func _setup_battle_heroes() -> void:
 	if not heroes_container: return
