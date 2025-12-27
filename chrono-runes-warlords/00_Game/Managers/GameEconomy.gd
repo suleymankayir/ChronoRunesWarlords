@@ -37,31 +37,22 @@ var current_enemy_break_turns: int = 0
 
 func _ready() -> void:
 	_load_character_database()
+	
+	# Load existing save or start fresh
 	if FileAccess.file_exists(SAVE_PATH):
 		load_game()
-	
-	# --- FORCE DEBUG TEAM (DPS + Stun + DoT) ---
-	# Ensure heroes are loaded in DB
-	for id in HERO_DATABASE:
-		if not character_db.has(id):
-			var res = load(HERO_DATABASE[id])
-			if res: 
-				character_db[id] = res
-	
-	# Force Inventory and Team - ENSURE STRICT ORDER
-	owned_heroes = ["hero_fire", "hero_nature_druid", "hero_dark"]
-	selected_team_ids = ["hero_fire", "hero_nature_druid", "hero_dark"]
-	
-	# Initialize levels if missing
-	for id in owned_heroes:
-		if not hero_levels.has(id):
-			hero_levels[id] = 1
-			
-	print("DEBUG: TEAM FORCED -> ", selected_team_ids)
-	
-	# Emit updates to sync UI
-	inventory_updated.emit()
-	team_updated.emit()
+		print(">>> Save file loaded successfully")
+	else:
+		print(">>> No save file found, starting new game")
+		# Start new game will be called from MainMenu if needed
+		# Or we can initialize minimal defaults here
+		gold = 0
+		gems = 0
+		owned_heroes = []
+		selected_team_ids = []
+		hero_levels = {}
+		max_unlocked_level = 1
+		current_map_level = 1
 
 func start_new_game() -> void:
 	print(">>> STARTING NEW GAME (RAM + DISK)...")
@@ -200,7 +191,7 @@ func get_character_data(id: String) -> CharacterData:
 
 func save_battle_snapshot(data: Dictionary) -> void:
 	active_battle_snapshot = data
-	# save_game() - Removed for optimization, handled by auto-save or explicit save
+	save_game() # Save immediately - mobile games need data persistence
 
 func clear_battle_snapshot() -> void:
 	active_battle_snapshot = {}
@@ -222,6 +213,9 @@ func reset_battle_state() -> void:
 
 func has_enough_gold(amount: int) -> bool:
 	return gold >= amount
+
+func has_enough_gems(amount: int) -> bool:
+	return gems >= amount
 
 func spend_gold(amount: int) -> bool:
 	if gold >= amount:
@@ -251,12 +245,13 @@ func spend_gems(amount: int) -> bool:
 
 func add_hero(hero_data: CharacterData) -> int:
 	if hero_data.id in owned_heroes:
-		add_gold(100) # Duplicate reward
+		add_gold(100) # Duplicate reward (this calls save_game)
 		return 100
 	
 	owned_heroes.append(hero_data.id)
 	hero_levels[hero_data.id] = 1 # Init level 1
 	inventory_updated.emit()
+	save_game() # CRITICAL: Persist new hero immediately
 	return 0
 
 func unlock_character(hero_data: CharacterData) -> void:
@@ -291,6 +286,7 @@ func check_new_high_score(score: int) -> void:
 	if score > high_score:
 		high_score = score
 		high_score_updated.emit(high_score)
+		save_game() # Save new high score
 
 func toggle_hero_selection(hero_id: String) -> void:
 	# CRITICAL: Changing team resets any suspended battle
@@ -299,9 +295,11 @@ func toggle_hero_selection(hero_id: String) -> void:
 	if hero_id in selected_team_ids:
 		selected_team_ids.erase(hero_id)
 		team_updated.emit()
+		save_game() # Save team change
 	elif selected_team_ids.size() < MAX_TEAM_SIZE and hero_id in owned_heroes:
 		selected_team_ids.append(hero_id)
 		team_updated.emit()
+		save_game() # Save team change
 
 func is_hero_selected(hero_id: String) -> bool:
 	return hero_id in selected_team_ids

@@ -23,18 +23,21 @@ static func calculate_damage(base_damage: int, damage_type: String, enemy_elemen
 static func get_elemental_multiplier(damage_type: String, enemy_element: String) -> float:
 	if enemy_element == "": return 1.0
 	
-	# Weakness (2.0x)
+	# Weakness (2.0x damage)
+	# Fire > Nature, Nature > Water, Water > Fire (classic triangle)
+	# Light > Dark (classic light vs dark)
 	if (damage_type == "red" and enemy_element == "green") or \
 	   (damage_type == "green" and enemy_element == "blue") or \
 	   (damage_type == "blue" and enemy_element == "red") or \
-	   (damage_type == "yellow" and enemy_element == "purple") or \
-	   (damage_type == "purple" and enemy_element == "yellow"):
+	   (damage_type == "yellow" and enemy_element == "purple"):
 		return 2.0
 		
-	# Resistance (0.5x)
+	# Resistance (0.5x damage)
+	# Reverse of weakness relationships + dark resists light
 	elif (damage_type == "green" and enemy_element == "red") or \
 		 (damage_type == "blue" and enemy_element == "green") or \
-		 (damage_type == "red" and enemy_element == "blue"):
+		 (damage_type == "red" and enemy_element == "blue") or \
+		 (damage_type == "purple" and enemy_element == "yellow"):
 		return 0.5
 		
 	return 1.0

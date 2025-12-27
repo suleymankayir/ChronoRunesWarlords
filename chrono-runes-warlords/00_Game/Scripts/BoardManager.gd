@@ -534,19 +534,33 @@ func _check_match_at(x: int, y: int) -> bool:
 	if not current: return false
 	var t = current.type
 	
+	# Check horizontal matches (with null guards)
 	if x > 0 and x < width - 1:
-		if all_pieces[x-1][y].type == t and all_pieces[x+1][y].type == t: return true
+		var left = all_pieces[x-1][y]
+		var right = all_pieces[x+1][y]
+		if left and right and left.type == t and right.type == t: return true
 	if x < width - 2:
-		if all_pieces[x+1][y].type == t and all_pieces[x+2][y].type == t: return true
+		var right1 = all_pieces[x+1][y]
+		var right2 = all_pieces[x+2][y]
+		if right1 and right2 and right1.type == t and right2.type == t: return true
 	if x > 1:
-		if all_pieces[x-1][y].type == t and all_pieces[x-2][y].type == t: return true
+		var left1 = all_pieces[x-1][y]
+		var left2 = all_pieces[x-2][y]
+		if left1 and left2 and left1.type == t and left2.type == t: return true
 		
+	# Check vertical matches (with null guards)
 	if y > 0 and y < height - 1:
-		if all_pieces[x][y-1].type == t and all_pieces[x][y+1].type == t: return true
+		var up = all_pieces[x][y-1]
+		var down = all_pieces[x][y+1]
+		if up and down and up.type == t and down.type == t: return true
 	if y < height - 2:
-		if all_pieces[x][y+1].type == t and all_pieces[x][y+2].type == t: return true
+		var down1 = all_pieces[x][y+1]
+		var down2 = all_pieces[x][y+2]
+		if down1 and down2 and down1.type == t and down2.type == t: return true
 	if y > 1:
-		if all_pieces[x][y-1].type == t and all_pieces[x][y-2].type == t: return true
+		var up1 = all_pieces[x][y-1]
+		var up2 = all_pieces[x][y-2]
+		if up1 and up2 and up1.type == t and up2.type == t: return true
 		
 	return false
 

@@ -207,16 +207,16 @@ func show_victory_screen() -> void:
 	if board_manager: board_manager.is_processing_move = true
 
 func _on_victory_claim_pressed() -> void:
-	# 1. Increment Level
-	GameEconomy.current_map_level += 1
+	# Level increment already done in complete_current_level()
+	# Just clear state and return to map
 	
-	# 2. Critical: Clear Saved Battle State
+	# 1. Clear Saved Battle State
 	GameEconomy.clear_battle_snapshot()
 	current_wave = 1
 	
-	# 3. Reload Scene
+	# 2. Return to Map
 	get_tree().paused = false
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file("res://00_Game/Scenes/MapScene.tscn")
 
 func calculate_and_apply_enemy_stats(enemy_node: Node) -> void:
 	var base_hp = 500 + (current_level * 50) + (current_wave * 100)
@@ -276,6 +276,14 @@ func _on_enemy_attack_finished() -> void:
 
 func start_player_turn() -> void:
 	is_player_turn = true
+	
+	# Decrement buff duration at start of player turn (not per hit!)
+	if buff_remaining_turns > 0:
+		buff_remaining_turns -= 1
+		if buff_remaining_turns <= 0: 
+			active_buff_multiplier = 1.0
+			spawn_status_text("Buff Ended", Color.GRAY, player_hp_bar.global_position + Vector2(0, -30))
+	
 	if board_manager: board_manager.is_processing_move = false
 
 func take_player_damage(amount: int) -> void:
@@ -321,10 +329,8 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 		amount, type, enemy_elem, match_count, combo_count, hero_attack, active_buff_multiplier
 	)
 	
-	if buff_remaining_turns > 0:
-		buff_remaining_turns -= 1
-		if buff_remaining_turns <= 0: active_buff_multiplier = 1.0
-		
+	# NOTE: Buff decrement moved to start_player_turn to prevent multi-consumption in cascades
+	
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(final_damage, type)
 		
@@ -346,8 +352,8 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	elif match_count == 4:
 		spawn_status_text("GREAT!", Color.CYAN, enemy.global_position + Vector2(0, -40), 1.5)
 		
-	# Combo Count Text
-	if combo_count > 1:
+	# Combo Count Text (Only show for actual combos)
+	if combo_count >= 2:
 		spawn_status_text("COMBO x%d" % combo_count, Color.GOLD, enemy.global_position + Vector2(0, -80), 1.2)
 	
 	current_score += final_damage
@@ -373,7 +379,8 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 			spawn_status_text("SKILL %d" % final_power, Color.RED, enemy.global_position)
 			
 		CharacterData.SkillType.HEAL:
-			heal_player(250)
+			# FIX: Scale heal with hero level instead of hardcoded value
+			heal_player(final_power)
 			
 		CharacterData.SkillType.BUFF_ATTACK:
 			active_buff_multiplier = 1.5
@@ -516,10 +523,19 @@ func _get_element_color(text: String) -> String:
 func _save_current_battle_state() -> void:
 	if player_current_hp <= 0: return
 	
+	# SAFETY: Don't save during level transitions (enemy might be dead/invalid)
+	if is_level_transitioning: return
+	
 	var ehp = 0
 	var eelem = "red"
 	if is_instance_valid(enemy):
-		ehp = enemy.current_hp
+		ehp = max(0, enemy.current_hp)  # Ensure never negative
+		
+		# CRITICAL: Don't save dead enemy state
+		if ehp <= 0:
+			print("⚠️ Skipping save: enemy is dead or dying")
+			return
+			
 		if "element_type" in enemy: eelem = enemy.element_type
 		
 		# Save Status
@@ -527,9 +543,9 @@ func _save_current_battle_state() -> void:
 		GameEconomy.current_enemy_dot_turns = enemy.dot_turns
 		GameEconomy.current_enemy_break_turns = enemy.defense_break_turns
 	else:
-		GameEconomy.current_enemy_stun_turns = 0
-		GameEconomy.current_enemy_dot_turns = 0
-		GameEconomy.current_enemy_break_turns = 0
+		# No valid enemy - might be transitioning, skip save
+		print("⚠️ Skipping save: no valid enemy instance")
+		return
 		
 	var manas = {}
 	if heroes_container:
