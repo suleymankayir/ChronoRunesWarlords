@@ -189,13 +189,14 @@ func _update_piece_visual(piece: GamePiece) -> void:
 	# DYNAMIC SCALING
 	if sprite.texture:
 		var tex_size = sprite.texture.get_size()
-		# Target size is 80% of the tile size
 		var target_size = tile_size * 0.8
-		# Calculate scale factor based on the largest dimension to fit within target box
 		var scale_factor = target_size / max(tex_size.x, tex_size.y)
 		sprite.scale = Vector2(scale_factor, scale_factor)
 	else:
 		sprite.scale = Vector2(0.40, 0.40)
+		
+	# SPECIAL VISUALS - Delegate to helper class (Phase 3 refactor)
+	SpecialGems.apply_special_visuals(piece)
 
 func _get_debug_color(type: String) -> Color:
 	match type:
@@ -260,37 +261,127 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 	piece_1.z_index = 0
 	piece_2.z_index = 0
 	
-	# Check Matches
+	# SPECIAL INTERACTION: Rainbow Swap
+	var rainbow_piece = null
+	var other_piece = null
+	
+	if piece_1.special_type == GamePiece.SpecialType.RAINBOW:
+		rainbow_piece = piece_1
+		other_piece = piece_2
+	elif piece_2.special_type == GamePiece.SpecialType.RAINBOW:
+		rainbow_piece = piece_2
+		other_piece = piece_1
+		
+	if rainbow_piece:
+		# Use 'other_piece' color for the blast
+		var target_color = other_piece.type
+		
+		# If other piece is ALSO special, maybe upgrade logic? (Future TODO)
+		# For now, just destroy everything of that color
+		
+		print("RAINBOW SWAP! Creating blast for color: ", target_color)
+		
+		# Visual flare on rainbow
+		activate_special_gem(rainbow_piece)
+		
+		# Change rainbow type to target color so destroy_gems_by_color works if I pass it?
+		# Actually destroy_gems_by_color takes a string. 
+		
+		# Destroy the rainbow piece itself first?
+		destroy_gems_by_color(target_color)
+		
+		# Destroy the specific rainbow piece (it might not be target color)
+		if is_instance_valid(rainbow_piece):
+			damage_piece(rainbow_piece)
+			all_pieces[rainbow_piece.grid_position.x][rainbow_piece.grid_position.y] = null
+			
+		return # Stop further processing, let destroy_gems handle refill
+	
+	# Check Matches (Standard)
 	if find_matches():
 		print("Match Found!")
 		destroy_matched_pieces() 
 	else:
 		print("NO Match! Reverting...")
 		Audio.play_sfx("error")
-		
-		# SHAKE FEEDBACK (Invalid Move)
-		var shake_tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		# Shake Piece 1
-		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x + 5, 0.05)
-		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x - 5, 0.05)
-		shake_tween.tween_property(piece_1, "position:x", piece_1.position.x, 0.05)
-		
-		await shake_tween.finished
-		
-		# Revert Data
-		all_pieces[pos_1.x][pos_1.y] = piece_1
-		all_pieces[pos_2.x][pos_2.y] = piece_2
-		
-		piece_1.grid_position = pos_1
-		piece_2.grid_position = pos_2
-		
-		# Revert Visual
-		var rev_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC)
-		rev_tween.tween_property(piece_1, "position", grid_to_pixel(pos_1.x, pos_1.y), 0.3)
-		rev_tween.tween_property(piece_2, "position", grid_to_pixel(pos_2.x, pos_2.y), 0.3)
-		await rev_tween.finished
-		
-		is_processing_move = false 
+
+func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array[GamePiece]:
+	# Delegate to static helper (Phase 3 refactor)
+	return MatchDetector.get_match_cluster(start_x, start_y, all_pieces, visited_mask, width, height)
+	
+func _create_special_gem_at(x: int, y: int, s_type: GamePiece.SpecialType, color_type: String) -> void:
+	var piece = all_pieces[x][y]
+	if not piece: return
+	
+	Audio.play_sfx("upgrade")
+	Audio.vibrate_heavy()  # HAPTIC: Strong feedback for special gem creation
+	piece.special_type = s_type
+	piece.matched = false # Reset matched status so it survives
+	
+	# Visual Update
+	_update_piece_visual(piece)
+	spawn_floating_text("SPECIAL!", 0, "yellow", piece.global_position)
+	
+	# Juice
+	var t = create_tween()
+	t.tween_property(piece, "scale", Vector2(1.5, 1.5), 0.2).set_trans(Tween.TRANS_BACK)
+	t.tween_property(piece, "scale", Vector2.ONE, 0.2)
+
+func activate_special_gem(piece: GamePiece) -> void:
+	if piece.special_type == GamePiece.SpecialType.NONE: return
+	
+	print("!!! ACTIVATING SPECIAL GEM: ", piece.special_type)
+	Audio.play_sfx("explosion")
+	
+	match piece.special_type:
+		GamePiece.SpecialType.ROW_BLAST:
+			# Clear Row
+			for i in range(width):
+				var target = all_pieces[i][piece.grid_position.y]
+				if target and target != piece:
+					# Chain Reaction
+					if target.special_type != GamePiece.SpecialType.NONE:
+						activate_special_gem(target)
+					
+					damage_piece(target)
+					all_pieces[i][piece.grid_position.y] = null
+			spawn_floating_text("ROW BLAST!", 0, "red", piece.global_position)
+			
+		GamePiece.SpecialType.COL_BLAST:
+			# Clear Column
+			for j in range(height):
+				var target = all_pieces[piece.grid_position.x][j]
+				if target and target != piece:
+					if target.special_type != GamePiece.SpecialType.NONE:
+						activate_special_gem(target)
+						
+					damage_piece(target)
+					all_pieces[piece.grid_position.x][j] = null
+			spawn_floating_text("COL BLAST!", 0, "blue", piece.global_position)
+
+		GamePiece.SpecialType.AREA_BOMB:
+			# Clear 3x3 area around the piece
+			var cx = piece.grid_position.x
+			var cy = piece.grid_position.y
+			for dx in range(-1, 2):
+				for dy in range(-1, 2):
+					var tx = cx + dx
+					var ty = cy + dy
+					if tx >= 0 and tx < width and ty >= 0 and ty < height:
+						var target = all_pieces[tx][ty]
+						if target and target != piece:
+							if target.special_type != GamePiece.SpecialType.NONE:
+								activate_special_gem(target)
+							damage_piece(target)
+							all_pieces[tx][ty] = null
+			spawn_floating_text("BOMB!", 0, "yellow", piece.global_position)
+
+		GamePiece.SpecialType.RAINBOW:
+			# Destroy all of one random color? Or the color it was matched with?
+			# Usually Rainbow is switched with a color.
+			# If matched naturally (5-match), maybe clear all of its own color?
+			destroy_gems_by_color(piece.type)
+			spawn_floating_text("RAINBOW!", 0, "purple", piece.global_position)
 
 func destroy_matched_pieces() -> void:
 	var was_match_found = false
@@ -323,50 +414,51 @@ func destroy_matched_pieces() -> void:
 					damage_dealt.emit(damage_amount, type, list_size, current_combo)
 					mana_gained.emit(list_size * 5, type)
 					
-					# Destroy pieces in this cluster
+					# SPECIAL GEM CREATION LOGIC
+					var special_created = false
+					var spawn_pos = cluster[0].grid_position # Default
+					var created_piece = null
+					
+					if list_size >= 4:
+						# Pick optimal position (center or cluster[1])
+						spawn_pos = cluster[1].grid_position if list_size > 1 else cluster[0].grid_position
+						
+						var new_special_type = GamePiece.SpecialType.ROW_BLAST 
+						if list_size == 4:
+							# Check Horizontal vs Vertical shape
+							var ys = []
+							for p in cluster: ys.append(p.grid_position.y)
+							# If all Ys are same, it's Horizontal -> Row Blast
+							# If all Xs are same, it's Vertical -> Col Blast
+							
+							var min_y = ys.min()
+							var max_y = ys.max()
+							if min_y == max_y:
+								new_special_type = GamePiece.SpecialType.ROW_BLAST
+							else:
+								new_special_type = GamePiece.SpecialType.COL_BLAST
+							
+						elif list_size >= 5:
+							new_special_type = GamePiece.SpecialType.RAINBOW
+							
+						# Evolution
+						_create_special_gem_at(spawn_pos.x, spawn_pos.y, new_special_type, type)
+						created_piece = all_pieces[spawn_pos.x][spawn_pos.y]
+						special_created = true
+
+					# Destroy pieces (and Activate specials)
 					for piece in cluster:
+						# If this is the piece we just created/evolved, SKIP destruction
+						if special_created and piece == created_piece:
+							continue
+							
+						# If piece was ALREADY special, activate it
+						if piece.special_type != GamePiece.SpecialType.NONE:
+							activate_special_gem(piece)
+							
 						damage_piece(piece)
 						all_pieces[piece.grid_position.x][piece.grid_position.y] = null
-					
-	if was_match_found:
-		Audio.play_sfx("match", randf_range(0.9, 1.1))
-		await get_tree().create_timer(0.3).timeout
-		refill_board()
 
-func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array[GamePiece]:
-	var cluster: Array[GamePiece] = []
-	var queue: Array[Vector2i] = [Vector2i(start_x, start_y)]
-	var target_type = all_pieces[start_x][start_y].type
-	
-	# Mark start as visited immediately to prevent re-queueing
-	visited_mask[start_x][start_y] = true
-	
-	while not queue.is_empty():
-		var current_pos = queue.pop_front()
-		var x = current_pos.x
-		var y = current_pos.y
-		var piece = all_pieces[x][y]
-		
-		# Confirm it's a valid piece for this cluster
-		if piece and piece.matched and piece.type == target_type:
-			cluster.append(piece)
-			
-			# Check 4-connected neighbors
-			var neighbors = [
-				Vector2i(x + 1, y), Vector2i(x - 1, y),
-				Vector2i(x, y + 1), Vector2i(x, y - 1)
-			]
-			
-			for n in neighbors:
-				# Bounds check
-				if n.x >= 0 and n.x < width and n.y >= 0 and n.y < height:
-					# Check if valid, unvisited, matched, and same type
-					if not visited_mask[n.x][n.y] and all_pieces[n.x][n.y] != null:
-						if all_pieces[n.x][n.y].matched and all_pieces[n.x][n.y].type == target_type:
-							visited_mask[n.x][n.y] = true # Mark visited when adding to queue
-							queue.append(n)
-							
-	return cluster
 
 func damage_piece(piece: GamePiece) -> void:
 	if vfx_explosion_scene:
@@ -382,44 +474,8 @@ func damage_piece(piece: GamePiece) -> void:
 	tween.finished.connect(piece.queue_free)
 	
 func find_matches() -> bool:
-	var matches_found: bool = false
-	
-	for x in range(width):
-		for y in range(height):
-			if all_pieces[x][y]:
-				all_pieces[x][y].matched = false
-
-	for y in range(height):
-		for x in range(width):
-			var current_piece = all_pieces[x][y]
-			if not current_piece: continue
-			
-			if x < width - 2:
-				var piece_right_1 = all_pieces[x + 1][y]
-				var piece_right_2 = all_pieces[x + 2][y]
-				if piece_right_1 and piece_right_2:
-					if current_piece.type == piece_right_1.type and current_piece.type == piece_right_2.type:
-						current_piece.matched = true
-						piece_right_1.matched = true
-						piece_right_2.matched = true
-						matches_found = true
-
-	for x in range(width):
-		for y in range(height):
-			var current_piece = all_pieces[x][y]
-			if not current_piece: continue
-			
-			if y < height - 2:
-				var piece_down_1 = all_pieces[x][y + 1]
-				var piece_down_2 = all_pieces[x][y + 2]
-				if piece_down_1 and piece_down_2:
-					if current_piece.type == piece_down_1.type and current_piece.type == piece_down_2.type:
-						current_piece.matched = true
-						piece_down_1.matched = true
-						piece_down_2.matched = true
-						matches_found = true
-						
-	return matches_found
+	# Delegate to static helper (Phase 3 refactor)
+	return MatchDetector.find_matches(all_pieces, width, height)
 
 func refill_board() -> void:
 	var tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)

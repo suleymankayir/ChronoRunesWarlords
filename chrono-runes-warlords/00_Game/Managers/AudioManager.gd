@@ -75,6 +75,23 @@ func play_sfx(data, pitch_scale: float = 1.0) -> void:
 		player.finished.connect(player.queue_free)
 
 # ------------------------------------------------------------------------------
+# HAPTIC FEEDBACK (Mobile UX)
+# ------------------------------------------------------------------------------
+func vibrate(duration_ms: int = 50) -> void:
+	# Only vibrate on mobile platforms
+	if OS.has_feature("mobile"):
+		Input.vibrate_handheld(duration_ms)
+
+func vibrate_light() -> void:
+	vibrate(30)
+
+func vibrate_medium() -> void:
+	vibrate(50)
+
+func vibrate_heavy() -> void:
+	vibrate(100)
+
+# ------------------------------------------------------------------------------
 # MUSIC FUNCTIONS (Kept as is)
 # ------------------------------------------------------------------------------
 func play_music(stream: AudioStream) -> void:

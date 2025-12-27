@@ -8,6 +8,10 @@ var type: String = ""  # E.g., "red", "blue", "green"
 var matched: bool = false # Ready to explode?
 var grid_position: Vector2i = Vector2i.ZERO
 
+# SPECIAL GEMS
+enum SpecialType { NONE, ROW_BLAST, COL_BLAST, AREA_BOMB, RAINBOW }
+var special_type: SpecialType = SpecialType.NONE
+
 # Touch variables
 var is_dragging: bool = false
 var start_touch_pos: Vector2 = Vector2.ZERO
@@ -17,6 +21,9 @@ var initial_scale: Vector2 = Vector2.ONE
 func _ready() -> void:
 	# Store the initial scale for juice calculations
 	initial_scale = $Sprite.scale
+	
+	# OPTIMIZATION: Disable _process by default (only needed during drag)
+	set_process(false)
 	
 	# Connect Area2D's own signal to itself
 	# This detects clicks on the piece.
@@ -59,7 +66,9 @@ func _start_drag(pos: Vector2) -> void:
 	is_dragging = true
 	start_touch_pos = pos
 	piece_selected.emit(self) # Tell Board 'I was touched'.
-	print("Touched: ", grid_position)
+	
+	# OPTIMIZATION: Enable _process only during drag
+	set_process(true)
 	
 	# JUICE: POP UP effect
 	z_index = 10
@@ -73,6 +82,9 @@ func _end_drag() -> void:
 	if not is_dragging: return
 	
 	is_dragging = false
+	
+	# OPTIMIZATION: Disable _process when not dragging
+	set_process(false)
 	
 	# JUICE: Reset
 	z_index = 0

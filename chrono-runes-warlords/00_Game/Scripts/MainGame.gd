@@ -12,6 +12,10 @@ extends Node2D
 @onready var player_hp_text: Label = $UILayer/PlayerHPBar/PlayerHPText
 @onready var mana_bar: TextureProgressBar = $UILayer/ManaBar
 
+# --- MANAGERS (Phase 2 Refactoring) ---
+var turn_manager: TurnManager
+var state_manager: BattleStateManager
+
 # --- SCENE PATHS (FLAT FOLDER) ---
 var victory_scene_path: String = "res://00_Game/Scenes/VictoryScreen.tscn"
 var pause_menu_path: String = "res://00_Game/Scenes/PauseMenu.tscn"
@@ -37,6 +41,7 @@ var current_score: int = 0
 var gold_earned_this_session: int = 0
 
 var current_enemy_damage: int = 0
+# Buff state now managed by TurnManager, but kept for backward compatibility
 var active_buff_multiplier: float = 1.0
 var buff_remaining_turns: int = 0
 
@@ -45,9 +50,9 @@ var is_level_transitioning: bool = false
 var enemy: Node = null
 var leader_data = null
 
-# SAVE OPTIMIZATION: Throttle auto-saves
+# SAVE OPTIMIZATION: Throttle auto-saves (NOTE: Also in BattleStateManager for future use)
 var turns_since_last_save: int = 0
-const SAVE_INTERVAL: int = 3  # Save every 3 turns to prevent lag
+const SAVE_INTERVAL: int = 3
 
 # --- INITIALIZATION ---
 func _ready() -> void:
@@ -67,11 +72,27 @@ func _ready() -> void:
 	# Sync Level
 	current_level = GameEconomy.current_map_level
 	
+	# --- MANAGERS SETUP (Phase 2) ---
+	state_manager = BattleStateManager.new()
+	state_manager.name = "BattleStateManager"
+	add_child(state_manager)
+	
+	turn_manager = TurnManager.new()
+	turn_manager.name = "TurnManager"
+	add_child(turn_manager)
+	
+	# Connect manager signals
+	turn_manager.player_turn_started.connect(_on_player_turn_started)
+	turn_manager.request_save.connect(func(): _save_current_battle_state())
+	state_manager.state_saved.connect(func(): print(">>> State saved via manager"))
+	
 	# Connect Board Signals
 	if board_manager:
 		board_manager.damage_dealt.connect(_on_player_damage_dealt)
 		board_manager.turn_finished.connect(_on_board_settled) 
 		board_manager.mana_gained.connect(_on_mana_gained)
+		turn_manager.board_manager = board_manager
+		state_manager.board_manager = board_manager
 		
 	# Setup Stats
 	var team_level = GameEconomy.get_team_total_level()
@@ -88,7 +109,13 @@ func _ready() -> void:
 		_load_battle_state()
 	else:
 		print(">>> STARTING FRESH BATTLE...")
-		player_current_hp = player_max_hp
+		# FIX: Load HP from Global Economy if valid
+		if GameEconomy.player_global_hp > 0:
+			player_current_hp = min(GameEconomy.player_global_hp, player_max_hp)
+			print(">>> Restored Global HP: ", player_current_hp)
+		else:
+			player_current_hp = player_max_hp
+			
 		current_wave = 1
 		spawn_next_enemy()
 		if board_manager: board_manager.spawn_board()
@@ -106,6 +133,12 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if not get_tree().paused:
 			show_pause_menu()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+		# FIX: Force save battle state on app close/pause
+		_save_current_battle_state(true)
+		print(">>> Forced Save on App Close/Pause")
 
 # --- WAVE & ENEMY LOGIC ---
 
@@ -183,21 +216,26 @@ func _on_enemy_died() -> void:
 	if current_wave < MAX_WAVES:
 		current_wave += 1
 		var center = get_viewport_rect().get_center()
+		
+		# FIX: Show wave cleared text and wait before spawning enemy
 		spawn_status_text("WAVE CLEARED!", Color.GREEN, center)
 		
 		# ANTI-FARMING: Show first clear bonus
-		if is_first_clear and current_wave == 2:  # Show once per level
+		if is_first_clear:
+			await get_tree().create_timer(0.5).timeout  # Wait for first text
 			spawn_status_text("FIRST CLEAR BONUS!", Color.GOLD, center + Vector2(0, -60))
 		
+		await get_tree().create_timer(1.0).timeout  # Let player see the text
 		show_wave_popup()
 		
-
 		spawn_next_enemy()
 		# Save Progress AFTER spawning new enemy to avoid saving "Dead" state
 		_save_current_battle_state()
 	else:
 		# LEVEL CLEARED
 		GameEconomy.complete_current_level()
+		# FIX: Save current HP for next level
+		GameEconomy.player_global_hp = player_current_hp
 		GameEconomy.save_game()
 		
 		# Clear Battle State
@@ -241,7 +279,8 @@ func calculate_and_apply_enemy_stats(enemy_node: Node) -> void:
 	if current_level % 3 == 0 and current_wave == MAX_WAVES:
 		base_hp = int(base_hp * 1.8)  # Reduced from 2.0
 		dmg = int(dmg * 1.4)  # Reduced from 1.5
-		enemy_node.scale = Vector2(1.5, 1.5)
+		# FIX: Don't make boss too large, use same scale as Wave 3
+		# enemy_node.scale set in spawn_next_enemy() handles this
 	
 	if "max_hp" in enemy_node: enemy_node.max_hp = base_hp
 	if "current_hp" in enemy_node: enemy_node.current_hp = base_hp
@@ -255,9 +294,10 @@ func _on_board_settled() -> void:
 	# SAVE OPTIMIZATION: Only save every N turns (throttle)
 	if turns_since_last_save >= SAVE_INTERVAL:
 		_save_current_battle_state()
-		GameEconomy.save_game()
-		print("Auto-saved after ", turns_since_last_save, " turns.")
+		print(">>> Auto-saved after ", turns_since_last_save, " turns.")  # FIX: More visible output
 		turns_since_last_save = 0
+	else:
+		print(">>> Turn ", turns_since_last_save, " (next save at 3)")  # FIX: Show turn counter
 	
 	is_player_turn = false
 	if board_manager: board_manager.is_processing_move = true
@@ -300,6 +340,10 @@ func _on_enemy_attack_finished() -> void:
 func start_player_turn() -> void:
 	is_player_turn = true
 	
+	# Sync with TurnManager
+	if turn_manager:
+		active_buff_multiplier = turn_manager.get_buff_multiplier()
+	
 	# Decrement buff duration at start of player turn (not per hit!)
 	if buff_remaining_turns > 0:
 		buff_remaining_turns -= 1
@@ -309,13 +353,19 @@ func start_player_turn() -> void:
 	
 	if board_manager: board_manager.is_processing_move = false
 
+func _on_player_turn_started() -> void:
+	# Called by TurnManager signal - sync state
+	is_player_turn = true
+	if board_manager: board_manager.is_processing_move = false
+
 func take_player_damage(amount: int) -> void:
 	player_current_hp -= amount
 	update_player_ui()
 	shake_screen(5.0, 0.3)
-	
+	Audio.vibrate_medium()  # HAPTIC: Feedback when taking damage	
 	if player_current_hp <= 0:
 		GameEconomy.clear_battle_snapshot()
+		GameEconomy.player_global_hp = -1 # Reset global HP on death
 		game_over(false)
 
 func game_over(is_victory: bool) -> void:
@@ -338,6 +388,7 @@ func game_over(is_victory: bool) -> void:
 
 func _on_restart_game() -> void:
 	GameEconomy.clear_battle_snapshot()
+	GameEconomy.player_global_hp = -1 # Reset HP for fresh run
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
@@ -425,7 +476,6 @@ func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	
 	# SAVE OPTIMIZATION: Save after skill use (critical event)
 	_save_current_battle_state()
-	GameEconomy.save_game()
 	turns_since_last_save = 0  # Reset counter
 
 # --- UI & HELPERS ---
@@ -485,8 +535,7 @@ func show_pause_menu() -> void:
 
 func _on_pause_quit() -> void:
 	# SAVE OPTIMIZATION: Always save when quitting (critical event)
-	_save_current_battle_state()
-	GameEconomy.save_game()
+	_save_current_battle_state(true)  # Force save
 	await get_tree().create_timer(0.1).timeout
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
@@ -504,8 +553,11 @@ func _setup_battle_heroes() -> void:
 	var team = GameEconomy.selected_team_ids
 	var leader = GameEconomy.get_team_leader_id()
 	var saved_mana = {}
+	
+	# FIX: Always check for saved mana (from battle snapshot)
 	if GameEconomy.has_active_battle() and "heroes_mana" in GameEconomy.active_battle_snapshot:
 		saved_mana = GameEconomy.active_battle_snapshot["heroes_mana"]
+		print(">>> Restoring mana: ", saved_mana)  # Debug output
 		
 	var scene = load(battle_hero_scene_path)
 	if not scene: return
@@ -517,9 +569,16 @@ func _setup_battle_heroes() -> void:
 			heroes_container.add_child(inst)
 			if inst.has_method("setup"):
 				inst.setup(data, hid == leader)
+			
+			# FIX: Restore mana AFTER setup
 			if hid in saved_mana:
-				inst.current_mana = saved_mana[hid]
+				var val = saved_mana[hid]
+				inst.current_mana = val
+				print("  - Restored DONE: ", hid, " -> ", inst.current_mana, " mana")
 				if inst.has_method("update_ui"): inst.update_ui()
+			else:
+				print("  - No saved mana found for ", hid, ". Available keys: ", saved_mana.keys())
+			
 			if inst.has_signal("skill_activated"):
 				inst.skill_activated.connect(_on_hero_skill_activated)
 
@@ -546,11 +605,11 @@ func _get_element_color(text: String) -> String:
 
 # --- PERSISTENCE ---
 
-func _save_current_battle_state() -> void:
+func _save_current_battle_state(force: bool = false) -> void:
 	if player_current_hp <= 0: return
 	
-	# SAFETY: Don't save during level transitions (enemy might be dead/invalid)
-	if is_level_transitioning: return
+	# SAFETY: Don't save during level transitions unless forced
+	if is_level_transitioning and not force: return
 	
 	var ehp = 0
 	var eelem = "red"
@@ -576,8 +635,13 @@ func _save_current_battle_state() -> void:
 	var manas = {}
 	if heroes_container:
 		for h in heroes_container.get_children():
-			if h.hero_data: manas[h.hero_data.id] = h.current_mana
-			
+			if h.hero_data and "current_mana" in h:
+				manas[h.hero_data.id] = h.current_mana
+			else:
+				print("⚠️ Hero missing data/mana property: ", h)
+
+	print(">>> Saving Battle State | Mana: ", manas)
+	
 	var data = {
 		"level": current_level,
 		"wave": current_wave,
@@ -621,7 +685,20 @@ func _load_battle_state() -> void:
 			_on_enemy_died() 
 			
 	if board_manager:
-		board_manager.load_board_data(bdata)
+		# FIX: If no board data saved, spawn fresh board
+		if bdata.is_empty():
+			board_manager.spawn_board()
+		else:
+			board_manager.load_board_data(bdata)
+			# BUG FIX #1: Check for actual GamePiece children, not all children
+			# (HintTimer is always a child, so get_child_count() is never 0)
+			var piece_count = 0
+			for child in board_manager.get_children():
+				if child is GamePiece:
+					piece_count += 1
+			if piece_count == 0:
+				print(">>> Board load failed (no pieces), spawning fresh...")
+				board_manager.spawn_board()
 	
 	show_wave_popup()
 	start_player_turn()

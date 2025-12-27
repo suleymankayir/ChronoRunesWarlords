@@ -30,6 +30,7 @@ var cleared_levels: Array = []  # ANTI-FARMING: Track first-time clears
 # --- NEW VARIABLES ---
 var max_unlocked_level: int = 1
 var current_map_level: int = 1
+var player_global_hp: int = -1  # BUG FIX: Track HP between levels
 
 # BATTLE PERSISTENCE VARIABLES
 var current_enemy_stun_turns: int = 0
@@ -68,6 +69,7 @@ func start_new_game() -> void:
 	cleared_levels = []  # ANTI-FARMING: Reset cleared levels
 	max_unlocked_level = 1
 	current_map_level = 1
+	player_global_hp = -1  # Reset global HP
 	
 	current_enemy_stun_turns = 0
 	current_enemy_dot_turns = 0
@@ -97,7 +99,8 @@ func save_game() -> void:
 
 		"battle_state": active_battle_snapshot,
 		"max_unlocked_level": max_unlocked_level,
-		"cleared_levels": cleared_levels,  # ANTI-FARMING: Save cleared levels
+		"cleared_levels": cleared_levels,
+		"player_global_hp": player_global_hp,  # Save global HP  # ANTI-FARMING: Save cleared levels
 		
 		"enemy_stun": current_enemy_stun_turns,
 		"enemy_dot": current_enemy_dot_turns,
@@ -123,6 +126,7 @@ func load_game() -> bool:
 				gems = int(data.get("gems", 0))
 				high_score = int(data.get("high_score", 0))
 				max_unlocked_level = int(data.get("max_unlocked_level", 1))
+				player_global_hp = int(data.get("player_global_hp", -1))
 				
 				current_enemy_stun_turns = int(data.get("enemy_stun", 0))
 				current_enemy_dot_turns = int(data.get("enemy_dot", 0))
@@ -176,6 +180,8 @@ func complete_current_level() -> void:
 func start_level_from_map(level_id: int) -> void:
 	current_map_level = level_id
 	clear_battle_snapshot()
+	# BUG FIX #3: Reset global HP when starting fresh level from map
+	player_global_hp = -1  # Will be set to max in MainGame._ready()
 	save_game()
 
 # ANTI-FARMING: Check if level has been cleared before

@@ -72,42 +72,46 @@ func apply_status(type: String, turns: int, value: int = 0) -> void:
 func update_status_visuals() -> void:
 	if not status_container: return
 	
-	# Clear existing
-	for child in status_container.get_children():
-		child.queue_free()
-
 	# Define Paths
 	var icon_stun_path = "res://01_Assets/Art/UI/Icons/icon_stun.png"
 	var icon_poison_path = "res://01_Assets/Art/UI/Icons/icon_poison.png"
 	var icon_break_path = "res://01_Assets/Art/UI/Icons/icon_break.png"
-
-	# Helper to create icon
-	var create_icon = func(path: String):
+	
+	# OPTIMIZATION: Pool icons - get or create by index
+	var status_list = []
+	if stun_turns > 0: status_list.append(icon_stun_path)
+	if dot_turns > 0: status_list.append(icon_poison_path)
+	if defense_break_turns > 0: status_list.append(icon_break_path)
+	
+	# Resize pool to match needed count
+	var current_count = status_container.get_child_count()
+	var needed_count = status_list.size()
+	
+	# Remove excess icons
+	while current_count > needed_count:
+		var child = status_container.get_child(current_count - 1)
+		child.queue_free()
+		current_count -= 1
+	
+	# Create missing icons
+	while current_count < needed_count:
 		var icon = TextureRect.new()
-		var exists = FileAccess.file_exists(path)
-		
-		# DEBUG LOGGING
-		print("[Enemy] Checking icon: ", path, " | Exists: ", exists)
-		
-		if exists:
-			icon.texture = load(path)
-			icon.modulate = Color.WHITE # Clean original art
-		else:
-			# MISSING ASSET FALLBACK
-			icon.texture = preload("res://icon.svg")
-			icon.modulate = Color.RED # Bright RED to indicate error/missing
-			
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.custom_minimum_size = Vector2(48, 48)
-		
 		status_container.add_child(icon)
+		current_count += 1
+	
+	# Update textures on existing icons
+	for i in range(needed_count):
+		var icon = status_container.get_child(i) as TextureRect
+		var path = status_list[i]
 		
-	if stun_turns > 0:
-		create_icon.call(icon_stun_path)
-	if dot_turns > 0:
-		create_icon.call(icon_poison_path)
-	if defense_break_turns > 0:
-		create_icon.call(icon_break_path)
+		if FileAccess.file_exists(path):
+			icon.texture = load(path)
+			icon.modulate = Color.WHITE
+		else:
+			icon.texture = preload("res://icon.svg")
+			icon.modulate = Color.RED
 
 func process_turn_start() -> bool:
 	# 0. Decrement stun immunity
