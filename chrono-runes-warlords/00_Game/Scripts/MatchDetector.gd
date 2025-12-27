@@ -7,6 +7,12 @@ class_name MatchDetector
 static func find_matches(all_pieces: Array, width: int, height: int) -> bool:
 	var matches_found: bool = false
 	
+	# BUG FIX #6: Reset matched flag before detection
+	for x in range(width):
+		for y in range(height):
+			if all_pieces[x][y] != null:
+				all_pieces[x][y].matched = false
+	
 	# Horizontal matches
 	for x in range(width):
 		for y in range(height):

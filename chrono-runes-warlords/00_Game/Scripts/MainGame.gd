@@ -196,7 +196,8 @@ func spawn_next_enemy() -> void:
 	start_player_turn()
 	is_level_transitioning = false
 	
-	_save_current_battle_state()
+	# NOTE: Save moved to _on_board_settled and after enemy turn
+	# Removed early save here to prevent saving empty mana (heroes not spawned yet)
 
 func _on_enemy_died() -> void:
 	is_level_transitioning = true
@@ -289,15 +290,16 @@ func calculate_and_apply_enemy_stats(enemy_node: Node) -> void:
 # --- TURN & COMBAT LOGIC ---
 
 func _on_board_settled() -> void:
+	print(">>> _on_board_settled called! Previous turns: ", turns_since_last_save)
 	turns_since_last_save += 1
 	
 	# SAVE OPTIMIZATION: Only save every N turns (throttle)
 	if turns_since_last_save >= SAVE_INTERVAL:
 		_save_current_battle_state()
-		print(">>> Auto-saved after ", turns_since_last_save, " turns.")  # FIX: More visible output
+		print(">>> Auto-saved after ", turns_since_last_save, " turns.")
 		turns_since_last_save = 0
 	else:
-		print(">>> Turn ", turns_since_last_save, " (next save at 3)")  # FIX: Show turn counter
+		print(">>> Turn ", turns_since_last_save, " of ", SAVE_INTERVAL, " (next save at ", SAVE_INTERVAL, ")")
 	
 	is_player_turn = false
 	if board_manager: board_manager.is_processing_move = true
@@ -634,11 +636,19 @@ func _save_current_battle_state(force: bool = false) -> void:
 		
 	var manas = {}
 	if heroes_container:
+		print(">>> Heroes container has ", heroes_container.get_child_count(), " children")
+		# FIX: Skip save if no heroes are spawned yet
+		if heroes_container.get_child_count() == 0:
+			print("⚠️ Skipping save: Heroes not spawned yet")
+			return
+			
 		for h in heroes_container.get_children():
+			print("  - Checking hero: ", h.name, " | has hero_data: ", h.hero_data != null, " | has current_mana: ", "current_mana" in h)
 			if h.hero_data and "current_mana" in h:
+				print("    -> Saving mana for ", h.hero_data.id, ": ", h.current_mana)
 				manas[h.hero_data.id] = h.current_mana
 			else:
-				print("⚠️ Hero missing data/mana property: ", h)
+				print("⚠️ Hero missing data/mana property: ", h.name)
 
 	print(">>> Saving Battle State | Mana: ", manas)
 	

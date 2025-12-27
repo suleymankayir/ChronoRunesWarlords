@@ -11,6 +11,9 @@ static func get_spawn_position(cluster: Array[GamePiece]) -> Vector2i:
 
 # Apply special gem visual modifiers
 static func apply_special_visuals(piece: GamePiece) -> void:
+	# BUG FIX #5: Guard against null/freed piece
+	if not is_instance_valid(piece): return
+	
 	piece.modulate = Color.WHITE
 	var label = piece.get_node_or_null("Label")
 	if label: label.text = ""

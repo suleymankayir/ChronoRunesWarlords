@@ -294,7 +294,9 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 		if is_instance_valid(rainbow_piece):
 			damage_piece(rainbow_piece)
 			all_pieces[rainbow_piece.grid_position.x][rainbow_piece.grid_position.y] = null
-			
+		
+		# BUG FIX #9: Reset is_processing_move before return
+		# Note: destroy_gems_by_color calls refill_board which will eventually reset is_processing_move
 		return # Stop further processing, let destroy_gems handle refill
 	
 	# Check Matches (Standard)
@@ -302,8 +304,28 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 		print("Match Found!")
 		destroy_matched_pieces() 
 	else:
+		# BUG FIX #7 & #8: Revert swap visually and reset is_processing_move
 		print("NO Match! Reverting...")
 		Audio.play_sfx("error")
+		
+		# Visually swap back
+		var revert_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC)
+		revert_tween.tween_property(piece_1, "position", grid_to_pixel(pos_1.x, pos_1.y), 0.3)
+		revert_tween.tween_property(piece_2, "position", grid_to_pixel(pos_2.x, pos_2.y), 0.3)
+		await revert_tween.finished
+		
+		# Revert data
+		all_pieces[pos_1.x][pos_1.y] = piece_1
+		all_pieces[pos_2.x][pos_2.y] = piece_2
+		piece_1.grid_position = pos_1
+		piece_2.grid_position = pos_2
+		
+		# Reset z-index
+		piece_1.z_index = 0
+		piece_2.z_index = 0
+		
+		# BUG FIX #8: Reset is_processing_move
+		is_processing_move = false
 
 func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array[GamePiece]:
 	# Delegate to static helper (Phase 3 refactor)
@@ -458,6 +480,11 @@ func destroy_matched_pieces() -> void:
 							
 						damage_piece(piece)
 						all_pieces[piece.grid_position.x][piece.grid_position.y] = null
+	
+	# CRITICAL FIX: Call refill_board after destroying pieces
+	if was_match_found:
+		await get_tree().create_timer(0.3).timeout  # Wait for destruction animation
+		refill_board()
 
 
 func damage_piece(piece: GamePiece) -> void:
