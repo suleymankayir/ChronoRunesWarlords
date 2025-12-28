@@ -35,9 +35,14 @@ func _ready() -> void:
 	if click_button: 
 		click_button.pressed.connect(_on_click_button_pressed)
 
-func setup(data: CharacterData, is_leader: bool) -> void:
+func setup(data: CharacterData, is_leader: bool, initial_mana: int = -1) -> void:
 	hero_data = data
-	current_mana = 0
+	# Only reset to 0 if no saved mana provided (initial_mana == -1)
+	if initial_mana == -1:
+		current_mana = 0
+	else:
+		# Clamp to non-negative to prevent corrupted save data issues
+		current_mana = max(0, initial_mana)
 	
 	if hero_data and icon:
 		icon.texture = hero_data.portrait
@@ -88,9 +93,9 @@ func update_ui() -> void:
 
 func _on_click_button_pressed() -> void:
 	if current_mana >= max_mana:
-		emit_signal("skill_activated", hero_data)
 		current_mana = 0
 		update_ui()
+		emit_signal("skill_activated", hero_data)
 	else:
 		# Feedback: Not Ready
 		var tween = create_tween()

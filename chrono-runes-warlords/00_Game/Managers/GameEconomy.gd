@@ -218,9 +218,13 @@ func save_battle_snapshot(data: Dictionary) -> void:
 func clear_battle_snapshot() -> void:
 	active_battle_snapshot = {}
 	save_game() # FIX: Immediate save to prevent "Zombie State" on restart
-	
+
 func has_active_battle() -> bool:
-	return not active_battle_snapshot.is_empty()
+	if active_battle_snapshot.is_empty():
+		return false
+	# Validate enemy is alive to prevent zombie battles
+	var enemy_hp = active_battle_snapshot.get("enemy_hp", 0)
+	return enemy_hp > 0
 
 func get_battle_snapshot() -> Dictionary:
 	return active_battle_snapshot

@@ -24,7 +24,8 @@ func _ready() -> void:
 	await get_tree().process_frame
 	update_status_visuals()
 
-	update_status_visuals()
+	# Update color based on loaded status
+	update_status_color()
 
 func update_home_position() -> void:
 	home_position = position
@@ -46,27 +47,26 @@ func apply_status(type: String, turns: int, value: int = 0) -> void:
 					get_parent().spawn_status_text("IMMUNE!", Color.ORANGE, global_position + Vector2(0, -50))
 				print("Enemy is immune to stun! Cooldown: ", stun_immunity_turns)
 				return
-			
+
 			stun_turns = turns
 			stun_immunity_turns = 3  # Immune for 3 turns after stun ends
-			visuals.modulate = Color(0.2, 0.2, 1.0) # Blue tint for Freeze
 			print("ENEMY STUNNED for ", turns, " turns!")
 		"dot":
 			dot_turns = turns
 			dot_damage = value
-			visuals.modulate = Color(0.8, 0, 0.8) # Purple/Red tint for Poison/Burn
 			print("ENEMY POISONED for ", turns, " turns! Dmg: ", value)
 		"def_break":
 			defense_break_turns = turns
 			defense_multiplier = 1.5
-			visuals.modulate = Color(1.0, 1.0, 0.2) # Yellow tint for Weakened
 			print("ENEMY DEFENSE BROKEN for ", turns, " turns! Multiplier: 1.5")
-			
+
+	update_status_color()
+
 	# Trigger a small shake to show status applied
 	var tween = create_tween()
 	tween.tween_property(visuals, "scale", Vector2(1.2, 1.2), 0.1)
 	tween.tween_property(visuals, "scale", Vector2.ONE, 0.1)
-	
+
 	update_status_visuals()
 
 func update_status_visuals() -> void:
@@ -119,7 +119,7 @@ func process_turn_start() -> bool:
 		stun_immunity_turns -= 1
 		if stun_immunity_turns == 0:
 			print("Enemy stun immunity expired!")
-	
+
 	# 1. Apply DoT
 	if dot_turns > 0:
 		take_damage(dot_damage, "dot")
@@ -127,58 +127,70 @@ func process_turn_start() -> bool:
 		# Visual feedback for DoT tick
 		if get_parent().has_method("spawn_status_text"):
 			get_parent().spawn_status_text("-%d" % dot_damage, Color.PURPLE, global_position + Vector2(0, -50))
-			
-		if dot_turns <= 0:
-			visuals.modulate = Color.WHITE # Reset color if no other status
 
 	# 2. Decrement Def Break
 	if defense_break_turns > 0:
 		defense_break_turns -= 1
 		if defense_break_turns <= 0:
 			defense_multiplier = 1.0
-			visuals.modulate = Color.WHITE
 			print("ENEMY DEFENSE RESTORED")
-			
+
+	# Update color after status changes
+	update_status_color()
+
 	# Update Visuals after decrements (DoT/Def updates)
 	update_status_visuals()
-			
+
 	# 3. Check Stun (Stun prevents action, so check last)
 	if stun_turns > 0:
 		stun_turns -= 1
 		print("ENEMY IS STUNNED! Turns remaining: ", stun_turns)
-		
+
 		# CRITICAL UX FIX: If Stun reaches 0, we are still skipping THIS turn.
 		# So we keep the Modulate/Icon visible for this one last turn.
 		# We ONLY update visuals (remove icon) if there are still turns left (refreshing)
 		# or if we started at 0 (handled below).
-		
+
 		if stun_turns > 0:
 			update_status_visuals()
 		else:
 			# Stun is 0, but we want to KEEP the visual for this skipped turn.
 			# Do NOT call update_status_visuals() which would remove it.
 			pass
-			
+
 		return true # Action Skipped
-			
+
 	return false # Can act
 
 var element_type: String = "red"
 
 func setup_element(new_type: String) -> void:
 	element_type = new_type
-	# Only reset modulate if no status effects are active
-	if stun_turns == 0 and dot_turns == 0 and defense_break_turns == 0:
-		match element_type:
-			"red": visuals.modulate = Color("#ff4d4d")
-			"blue": visuals.modulate = Color("#4da6ff")
-			"green": visuals.modulate = Color("#5cd65c")
-			"yellow": visuals.modulate = Color("#ffd11a")
-			"purple": visuals.modulate = Color("#ac00e6")
-			_: visuals.modulate = Color.WHITE
-			
-	current_base_color = visuals.modulate
+	# Set base color based on element
+	match element_type:
+		"red": current_base_color = Color("#ff4d4d")
+		"blue": current_base_color = Color("#4da6ff")
+		"green": current_base_color = Color("#5cd65c")
+		"yellow": current_base_color = Color("#ffd11a")
+		"purple": current_base_color = Color("#ac00e6")
+		_: current_base_color = Color.WHITE
+	# Update actual color based on status effects
+	update_status_color()
 
+# Centralized status effect color management
+# Priority: Stun > DoT > Def Break > Base Color
+func update_status_color() -> void:
+	if not visuals:
+		return
+
+	if stun_turns > 0:
+		visuals.modulate = Color(0.2, 0.2, 1.0)  # Blue tint for Stun
+	elif dot_turns > 0:
+		visuals.modulate = Color(0.8, 0, 0.8)  # Purple/Red tint for DoT
+	elif defense_break_turns > 0:
+		visuals.modulate = Color(1.0, 1.0, 0.2)  # Yellow tint for Def Break
+	else:
+		visuals.modulate = current_base_color  # Reset to base element color
 
 func take_damage(amount: int, element_type: String) -> void:
 	if defense_multiplier > 1.0:
@@ -209,19 +221,22 @@ func update_ui() -> void:
 	hp_text.text = str(current_hp) + " / " + str(max_hp)
 
 func play_hit_animation() -> void:
-	# JUICE: Vurulma hissi (Kızarma ve Titreme)
+	# JUICE: Hit effect (Flash and Shake)
 	var tween = create_tween()
-	
-	# 1. Renk değişimi (Beyaza parlayıp geri dönme - Flash Effect)
-	visuals.modulate = Color(10, 10, 10) # Çok parlak beyaz (Glow varsa parlar)
-	tween.tween_property(visuals, "modulate", current_base_color, 0.1) # Dönüş: Orijinal renk
-	
-	# 2. Titreme (Shake)
+
+	# 1. Flash white then return to appropriate status color
+	visuals.modulate = Color(10, 10, 10)  # Bright white flash
+
+	# Use callback to restore proper color after flash
+	tween.tween_callback(func(): update_status_color())
+	tween.tween_interval(0.1)
+
+	# 2. Shake effect
 	var shake_strength = 10.0
 	for i in range(5):
 		var offset = Vector2(randf_range(-shake_strength, shake_strength), randf_range(-shake_strength, shake_strength))
 		tween.tween_property(visuals, "position", offset, 0.05)
-	
+
 	# Return to center at end
 	tween.tween_property(visuals, "position", Vector2.ZERO, 0.05)
 

@@ -42,6 +42,10 @@ var hint_timer: Timer
 var active_hint_pieces: Array[GamePiece] = []
 var active_hint_tweens: Array[Tween] = []
 
+# Special Gem Chain Reaction Prevention
+# Track activated grid positions instead of piece references (pieces get freed, positions don't)
+var _activated_positions: Array[Vector2i] = []
+
 func _ready() -> void:
 	if not piece_scene:
 		push_error("WARNING: 'piece_scene' not assigned to BoardManager!")
@@ -275,29 +279,26 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 	if rainbow_piece:
 		# Use 'other_piece' color for the blast
 		var target_color = other_piece.type
-		
+
 		# If other piece is ALSO special, maybe upgrade logic? (Future TODO)
 		# For now, just destroy everything of that color
-		
+
 		print("RAINBOW SWAP! Creating blast for color: ", target_color)
-		
-		# Visual flare on rainbow
-		activate_special_gem(rainbow_piece)
-		
-		# Change rainbow type to target color so destroy_gems_by_color works if I pass it?
-		# Actually destroy_gems_by_color takes a string. 
-		
-		# Destroy the rainbow piece itself first?
-		destroy_gems_by_color(target_color)
-		
-		# Destroy the specific rainbow piece (it might not be target color)
+
+		# Visual effects (don't call activate_special_gem as it conflicts)
+		Audio.play_sfx("explosion")
+		spawn_floating_text("RAINBOW!", 0, "purple", rainbow_piece.global_position)
+
+		# Destroy the rainbow piece first (before refill)
 		if is_instance_valid(rainbow_piece):
 			damage_piece(rainbow_piece)
 			all_pieces[rainbow_piece.grid_position.x][rainbow_piece.grid_position.y] = null
-		
-		# BUG FIX #9: Reset is_processing_move before return
-		# Note: destroy_gems_by_color calls refill_board which will eventually reset is_processing_move
-		return # Stop further processing, let destroy_gems handle refill
+
+		# Destroy all gems of target color using safe method (prevents chain recursion)
+		await _destroy_gems_by_color_safe(target_color)
+
+		# is_processing_move will be reset by turn_finished signal flow
+		return # Stop further processing, refill is complete
 	
 	# Check Matches (Standard)
 	if find_matches():
@@ -350,60 +351,86 @@ func _create_special_gem_at(x: int, y: int, s_type: GamePiece.SpecialType, color
 	t.tween_property(piece, "scale", Vector2.ONE, 0.2)
 
 func activate_special_gem(piece: GamePiece) -> void:
-	if piece.special_type == GamePiece.SpecialType.NONE: return
-	
-	print("!!! ACTIVATING SPECIAL GEM: ", piece.special_type)
+	# Validate piece is still valid (not freed/queued for deletion)
+	if not is_instance_valid(piece):
+		return
+
+	if piece.special_type == GamePiece.SpecialType.NONE:
+		return
+
+	# CRITICAL: Store position data BEFORE any operations that might free the piece
+	var piece_position = piece.global_position
+	var piece_grid_pos = piece.grid_position
+
+	# Prevent infinite recursion - check if this position is already being activated
+	if piece_grid_pos in _activated_positions:
+		print("!!! RECURSION PREVENTED: Position ", piece_grid_pos, " already activating")
+		return
+
+	# Add position to tracking array
+	_activated_positions.append(piece_grid_pos)
+
+	# Store type before disabling
+	var special_type_backup = piece.special_type
+
+	print("!!! ACTIVATING SPECIAL GEM: ", special_type_backup, " at ", piece_grid_pos)
 	Audio.play_sfx("explosion")
-	
-	match piece.special_type:
+
+	# Disable special before chain reactions to prevent re-activation
+	piece.special_type = GamePiece.SpecialType.NONE
+
+	match special_type_backup:
 		GamePiece.SpecialType.ROW_BLAST:
 			# Clear Row
 			for i in range(width):
-				var target = all_pieces[i][piece.grid_position.y]
-				if target and target != piece:
+				var target = all_pieces[i][piece_grid_pos.y]
+				if is_instance_valid(target) and target != piece:
 					# Chain Reaction
 					if target.special_type != GamePiece.SpecialType.NONE:
 						activate_special_gem(target)
-					
+
 					damage_piece(target)
-					all_pieces[i][piece.grid_position.y] = null
-			spawn_floating_text("ROW BLAST!", 0, "red", piece.global_position)
-			
+					all_pieces[i][piece_grid_pos.y] = null
+			spawn_floating_text("ROW BLAST!", 0, "red", piece_position)
+
 		GamePiece.SpecialType.COL_BLAST:
 			# Clear Column
 			for j in range(height):
-				var target = all_pieces[piece.grid_position.x][j]
-				if target and target != piece:
+				var target = all_pieces[piece_grid_pos.x][j]
+				if is_instance_valid(target) and target != piece:
 					if target.special_type != GamePiece.SpecialType.NONE:
 						activate_special_gem(target)
-						
+
 					damage_piece(target)
-					all_pieces[piece.grid_position.x][j] = null
-			spawn_floating_text("COL BLAST!", 0, "blue", piece.global_position)
+					all_pieces[piece_grid_pos.x][j] = null
+			spawn_floating_text("COL BLAST!", 0, "blue", piece_position)
 
 		GamePiece.SpecialType.AREA_BOMB:
 			# Clear 3x3 area around the piece
-			var cx = piece.grid_position.x
-			var cy = piece.grid_position.y
+			var cx = piece_grid_pos.x
+			var cy = piece_grid_pos.y
 			for dx in range(-1, 2):
 				for dy in range(-1, 2):
 					var tx = cx + dx
 					var ty = cy + dy
 					if tx >= 0 and tx < width and ty >= 0 and ty < height:
 						var target = all_pieces[tx][ty]
-						if target and target != piece:
+						if is_instance_valid(target) and target != piece:
 							if target.special_type != GamePiece.SpecialType.NONE:
 								activate_special_gem(target)
 							damage_piece(target)
 							all_pieces[tx][ty] = null
-			spawn_floating_text("BOMB!", 0, "yellow", piece.global_position)
+			spawn_floating_text("BOMB!", 0, "yellow", piece_position)
 
 		GamePiece.SpecialType.RAINBOW:
-			# Destroy all of one random color? Or the color it was matched with?
-			# Usually Rainbow is switched with a color.
-			# If matched naturally (5-match), maybe clear all of its own color?
-			destroy_gems_by_color(piece.type)
-			spawn_floating_text("RAINBOW!", 0, "purple", piece.global_position)
+			# Store type before async operation (piece might be freed during await)
+			var piece_type = piece.type if is_instance_valid(piece) else "red"
+			# Destroy all of one color (use safe version to prevent recursion)
+			await _destroy_gems_by_color_safe(piece_type)
+			spawn_floating_text("RAINBOW!", 0, "purple", piece_position)
+
+	# Remove position from tracking array
+	_activated_positions.erase(piece_grid_pos)
 
 func destroy_matched_pieces() -> void:
 	var was_match_found = false
@@ -417,17 +444,21 @@ func destroy_matched_pieces() -> void:
 	# Find independent clusters
 	for x in range(width):
 		for y in range(height):
-			if all_pieces[x][y] != null and all_pieces[x][y].matched and not visited_mask[x][y]:
+			var current_piece = all_pieces[x][y]
+			if current_piece != null and is_instance_valid(current_piece) and current_piece.matched and not visited_mask[x][y]:
 				# Found a new cluster
 				was_match_found = true
-				
+
 				# CRITICAL: Increment combo per cluster found
 				current_combo += 1
-				
+
 				var cluster = get_match_cluster(x, y, visited_mask)
-				
+
 				# Process this specific cluster
 				if not cluster.is_empty():
+					# Validate first piece before accessing
+					if not is_instance_valid(cluster[0]):
+						continue
 					var type = cluster[0].type
 					var list_size = cluster.size()
 					var damage_amount = list_size * 10
@@ -438,18 +469,23 @@ func destroy_matched_pieces() -> void:
 					
 					# SPECIAL GEM CREATION LOGIC
 					var special_created = false
-					var spawn_pos = cluster[0].grid_position # Default
+					var spawn_pos = cluster[0].grid_position if is_instance_valid(cluster[0]) else Vector2i(0, 0)
 					var created_piece = null
-					
+
 					if list_size >= 4:
 						# Pick optimal position (center or cluster[1])
-						spawn_pos = cluster[1].grid_position if list_size > 1 else cluster[0].grid_position
+						if list_size > 1 and is_instance_valid(cluster[1]):
+							spawn_pos = cluster[1].grid_position
+						elif is_instance_valid(cluster[0]):
+							spawn_pos = cluster[0].grid_position
 						
 						var new_special_type = GamePiece.SpecialType.ROW_BLAST 
 						if list_size == 4:
 							# Check Horizontal vs Vertical shape
 							var ys = []
-							for p in cluster: ys.append(p.grid_position.y)
+							for p in cluster:
+								if is_instance_valid(p):
+									ys.append(p.grid_position.y)
 							# If all Ys are same, it's Horizontal -> Row Blast
 							# If all Xs are same, it's Vertical -> Col Blast
 							
@@ -470,16 +506,23 @@ func destroy_matched_pieces() -> void:
 
 					# Destroy pieces (and Activate specials)
 					for piece in cluster:
+						# Validate piece before accessing
+						if not is_instance_valid(piece):
+							continue
+
 						# If this is the piece we just created/evolved, SKIP destruction
 						if special_created and piece == created_piece:
 							continue
-							
+
 						# If piece was ALREADY special, activate it
 						if piece.special_type != GamePiece.SpecialType.NONE:
 							activate_special_gem(piece)
-							
+
+						# Store grid pos before damaging (piece might get freed)
+						var grid_x = piece.grid_position.x
+						var grid_y = piece.grid_position.y
 						damage_piece(piece)
-						all_pieces[piece.grid_position.x][piece.grid_position.y] = null
+						all_pieces[grid_x][grid_y] = null
 	
 	# CRITICAL FIX: Call refill_board after destroying pieces
 	if was_match_found:
@@ -488,6 +531,9 @@ func destroy_matched_pieces() -> void:
 
 
 func damage_piece(piece: GamePiece) -> void:
+	if not is_instance_valid(piece):
+		return
+
 	if vfx_explosion_scene:
 		var vfx = vfx_explosion_scene.instantiate() as VFX_Explosion
 		add_child(vfx)
@@ -511,7 +557,7 @@ func refill_board() -> void:
 		for y in range(height - 1, -1, -1):
 			if all_pieces[x][y] == null:
 				for k in range(y - 1, -1, -1):
-					if all_pieces[x][k] != null:
+					if all_pieces[x][k] != null and is_instance_valid(all_pieces[x][k]):
 						move_piece(x, k, x, y, tween)
 						break
 				
@@ -528,11 +574,12 @@ func refill_board() -> void:
 func _check_for_deadlock_and_finish() -> void:
 	var possible_move = find_possible_move()
 	if not possible_move.is_empty():
-		turn_finished.emit() 
+		is_processing_move = false
+		turn_finished.emit()
 	else:
 		print("DEADLOCK DETECTED! Shuffling...")
 		await shuffle_board()
-		
+
 		# Recursive check after shuffle
 		if find_matches():
 			destroy_matched_pieces()
@@ -541,6 +588,8 @@ func _check_for_deadlock_and_finish() -> void:
 
 func move_piece(from_x: int, from_y: int, to_x: int, to_y: int, tween: Tween) -> void:
 	var piece = all_pieces[from_x][from_y]
+	if not is_instance_valid(piece):
+		return
 	all_pieces[to_x][to_y] = piece
 	all_pieces[from_x][from_y] = null
 	piece.grid_position = Vector2i(to_x, to_y)
@@ -708,29 +757,32 @@ func spawn_floating_text(text: String, val: int, color_name: String, pos: Vector
 
 func destroy_all_of_color(target_color: String) -> void:
 	Audio.play_sfx("combo")
-	
+
 	var targets: Array[GamePiece] = []
 	for x in range(width):
 		for y in range(height):
 			var p = all_pieces[x][y]
-			if p and p.type == target_color:
+			if p and is_instance_valid(p) and p.type == target_color:
 				targets.append(p)
-				
-	if targets.is_empty(): 
+
+	if targets.is_empty():
 		return
-		
+
 	# Visual
 	spawn_floating_text("WIPE!", targets.size(), target_color, get_viewport_rect().get_center())
-	
+
 	current_combo += 1
 	var total_dmg = targets.size() * 15
-	
+
 	damage_dealt.emit(total_dmg, target_color, targets.size(), current_combo)
 	mana_gained.emit(targets.size() * 5, target_color)
-	
+
 	for p in targets:
-		damage_piece(p)
-		all_pieces[p.grid_position.x][p.grid_position.y] = null
+		if is_instance_valid(p):
+			var grid_x = p.grid_position.x
+			var grid_y = p.grid_position.y
+			damage_piece(p)
+			all_pieces[grid_x][grid_y] = null
 		
 	await get_tree().create_timer(0.3).timeout
 	refill_board()
@@ -764,35 +816,39 @@ func transmute_pieces(count: int, target_color: String) -> void:
 		print("WARNING: Element '", raw_lower, "' has no color mapping! Using raw value.")
 	
 	var candidates: Array[GamePiece] = []
-	
+
 	for x in range(width):
 		for y in range(height):
 			var p = all_pieces[x][y]
 			# Ensure we don't transmute pieces that are already that color
-			if p and p.type != final_color:
+			if p and is_instance_valid(p) and p.type != final_color:
 				candidates.append(p)
-				
+
 	candidates.shuffle()
 	var targets = candidates.slice(0, count)
-	
-	if targets.is_empty(): 
+
+	if targets.is_empty():
 		print("No valid candidates for transmutation.")
 		return
-	
+
 	Audio.play_sfx("match")
 	spawn_floating_text("ALCHEMY!", targets.size(), final_color, get_viewport_rect().get_center())
-	
+
 	# 1. Apply changes visually and logically (Restored Loop)
 	for p in targets:
+		if not is_instance_valid(p):
+			continue
+
 		p.type = final_color
-		
+
 		# VFX with visual update
 		var t = create_tween()
 		t.tween_property(p, "scale", Vector2(0.1, 1.2), 0.1)
-		
+
 		# Explicitly update visual in callback
-		t.tween_callback(func(): 
-			_update_piece_visual(p)
+		t.tween_callback(func():
+			if is_instance_valid(p):
+				_update_piece_visual(p)
 		)
 		
 		t.tween_property(p, "scale", Vector2.ONE, 0.1)
@@ -812,10 +868,33 @@ func destroy_gems_by_color(color: String) -> void:
 	for x in range(width):
 		for y in range(height):
 			var current_piece = all_pieces[x][y]
-			if current_piece and current_piece.type == color:
+			if current_piece and is_instance_valid(current_piece) and current_piece.type == color:
 				damage_piece(current_piece)
 				all_pieces[x][y] = null
-				
+
 	# Refill Board after clearing
 	await get_tree().create_timer(0.3).timeout
-	refill_board()
+	await refill_board()
+
+# Safe version: Disables special gems before destroying to prevent chain reactions
+func _destroy_gems_by_color_safe(color: String) -> void:
+	# First pass: Disable all special gems of target color
+	for x in range(width):
+		for y in range(height):
+			var current_piece = all_pieces[x][y]
+			if current_piece and is_instance_valid(current_piece) and current_piece.type == color:
+				if current_piece.special_type != GamePiece.SpecialType.NONE:
+					print("Disabling special gem before color destroy: ", current_piece.special_type)
+					current_piece.special_type = GamePiece.SpecialType.NONE
+
+	# Second pass: Destroy all gems of target color (now safe from chains)
+	for x in range(width):
+		for y in range(height):
+			var current_piece = all_pieces[x][y]
+			if current_piece and is_instance_valid(current_piece) and current_piece.type == color:
+				damage_piece(current_piece)
+				all_pieces[x][y] = null
+
+	# Refill Board after clearing
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()

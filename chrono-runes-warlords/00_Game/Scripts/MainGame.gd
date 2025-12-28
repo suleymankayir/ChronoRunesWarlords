@@ -569,18 +569,16 @@ func _setup_battle_heroes() -> void:
 		if data:
 			var inst = scene.instantiate()
 			heroes_container.add_child(inst)
+
+			# Pass saved mana directly to setup to avoid reset
+			# Use -1 as default to indicate no saved mana (will reset to 0 in setup)
+			var initial_mana = saved_mana.get(hid, -1)
 			if inst.has_method("setup"):
-				inst.setup(data, hid == leader)
-			
-			# FIX: Restore mana AFTER setup
-			if hid in saved_mana:
-				var val = saved_mana[hid]
-				inst.current_mana = val
-				print("  - Restored DONE: ", hid, " -> ", inst.current_mana, " mana")
-				if inst.has_method("update_ui"): inst.update_ui()
-			else:
-				print("  - No saved mana found for ", hid, ". Available keys: ", saved_mana.keys())
-			
+				inst.setup(data, hid == leader, initial_mana)
+
+			if initial_mana > 0:
+				print("  - Restored mana: ", hid, " -> ", initial_mana)
+
 			if inst.has_signal("skill_activated"):
 				inst.skill_activated.connect(_on_hero_skill_activated)
 
@@ -688,6 +686,10 @@ func _load_battle_state() -> void:
 		enemy.defense_break_turns = GameEconomy.current_enemy_break_turns
 		if enemy.has_method("update_status_visuals"):
 			enemy.update_status_visuals()
+			
+		# Update color based on status
+		if enemy.has_method("update_status_color"):
+			enemy.update_status_color()
 			
 		# ZOMBIE FIX: If loaded dead, kill immediately or skip
 		if enemy.current_hp <= 0:
