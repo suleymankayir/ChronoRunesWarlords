@@ -1,5 +1,11 @@
 extends Node2D
 
+# --- BALANCE CONSTANTS ---
+const MANA_PER_GEM: int = 5  # Mana gained per gem matched (BoardManager uses this)
+const WAVE_HEAL_PERCENT_EARLY: float = 0.20  # 20% heal for waves 1-2
+const WAVE_HEAL_PERCENT_BOSS: float = 0.15   # 15% heal before boss wave
+const SAVE_INTERVAL_TURNS: int = 3  # Auto-save every N turns
+
 # --- NODES (MATCHING SCENE HIERARCHY) ---
 @onready var board_manager: BoardManager = $BoardManager
 @onready var heroes_container: HBoxContainer = $HeroesContainer
@@ -41,9 +47,7 @@ var current_score: int = 0
 var gold_earned_this_session: int = 0
 
 var current_enemy_damage: int = 0
-# Buff state now managed by TurnManager, but kept for backward compatibility
-var active_buff_multiplier: float = 1.0
-var buff_remaining_turns: int = 0
+# NOTE: Buff state now fully managed by TurnManager (removed local variables)
 
 var is_player_turn: bool = true
 var is_level_transitioning: bool = false
@@ -143,7 +147,10 @@ func _notification(what: int) -> void:
 # --- WAVE & ENEMY LOGIC ---
 
 func spawn_next_enemy() -> void:
-	buff_remaining_turns = 0
+	# Reset buffs via TurnManager
+	if turn_manager:
+		turn_manager.apply_buff(1.0, 0)
+
 	if is_instance_valid(enemy): enemy.queue_free()
 	
 	var scene = load(enemy_scene_path)
@@ -209,7 +216,9 @@ func _on_enemy_died() -> void:
 	var gold_multiplier = 1.0 if is_first_clear else 0.5
 	var gold_reward = int(base_gold * gold_multiplier)
 	
-	heal_player(int(player_max_hp * 0.10))  # BALANCE: Reduced from 0.2 to make attrition meaningful
+	# BALANCE: Scale healing based on wave difficulty (more heal early, less before boss)
+	var heal_percent = WAVE_HEAL_PERCENT_EARLY if current_wave < MAX_WAVES else WAVE_HEAL_PERCENT_BOSS
+	heal_player(int(player_max_hp * heal_percent))
 	gold_earned_this_session += gold_reward
 	GameEconomy.add_gold(gold_reward)
 	
@@ -341,18 +350,13 @@ func _on_enemy_attack_finished() -> void:
 
 func start_player_turn() -> void:
 	is_player_turn = true
-	
-	# Sync with TurnManager
-	if turn_manager:
-		active_buff_multiplier = turn_manager.get_buff_multiplier()
-	
-	# Decrement buff duration at start of player turn (not per hit!)
-	if buff_remaining_turns > 0:
-		buff_remaining_turns -= 1
-		if buff_remaining_turns <= 0: 
-			active_buff_multiplier = 1.0
+
+	# TurnManager handles buff decrement and state management
+	# Check if buff just ended and show feedback
+	if turn_manager and turn_manager.buff_remaining_turns == 0 and not turn_manager.is_buff_active():
+		if player_hp_bar:  # Only show if buff actually ended this turn
 			spawn_status_text("Buff Ended", Color.GRAY, player_hp_bar.global_position + Vector2(0, -30))
-	
+
 	if board_manager: board_manager.is_processing_move = false
 
 func _on_player_turn_started() -> void:
@@ -400,18 +404,22 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 	
 	var hero_attack = GameEconomy.get_hero_attack(type)
 	var enemy_elem = enemy.element_type if "element_type" in enemy else ""
-	
+
+	# Use TurnManager for buff multiplier
+	var buff_mult = turn_manager.get_buff_multiplier() if turn_manager else 1.0
+
 	var final_damage = CombatMath.calculate_damage(
-		amount, type, enemy_elem, match_count, combo_count, hero_attack, active_buff_multiplier
+		amount, type, enemy_elem, match_count, combo_count, hero_attack, buff_mult
 	)
 	
 	# NOTE: Buff decrement moved to start_player_turn to prevent multi-consumption in cascades
 	
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(final_damage, type)
-		
-	distribute_mana(type, match_count)
-	
+
+	# NOTE: Mana distribution now handled by BoardManager.mana_gained signal → _on_mana_gained()
+	# Removed duplicate distribute_mana() call to prevent double mana gains
+
 	# Visuals
 	var elem_mult = CombatMath.get_elemental_multiplier(type, enemy_elem)
 	var is_crit = elem_mult > 1.0
@@ -427,9 +435,21 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 		spawn_status_text("AMAZING!", Color.MAGENTA, enemy.global_position + Vector2(0, -60), 2.0)
 	elif match_count == 4:
 		spawn_status_text("GREAT!", Color.CYAN, enemy.global_position + Vector2(0, -40), 1.5)
-		
-	# Combo Count Text (Only show for actual combos)
-	if combo_count >= 2:
+
+	# Combo Milestone Celebrations (Enhanced visual/audio feedback)
+	if combo_count >= 10:
+		spawn_status_text("MEGA COMBO x%d!" % combo_count, Color(2.0, 1.0, 0.0), enemy.global_position + Vector2(0, -100), 3.0)
+		Audio.play_sfx("powerup")  # Special sound for huge combos
+		Audio.vibrate_heavy()
+		shake_screen(8.0, 0.4)  # Extra screen shake
+	elif combo_count >= 5:
+		spawn_status_text("SUPER COMBO x%d!" % combo_count, Color(1.5, 1.5, 0.0), enemy.global_position + Vector2(0, -90), 2.5)
+		Audio.play_sfx("powerup")
+		Audio.vibrate_medium()
+	elif combo_count >= 3:
+		spawn_status_text("TRIPLE COMBO!", Color.GOLD, enemy.global_position + Vector2(0, -80), 2.0)
+		Audio.vibrate_light()
+	elif combo_count >= 2:
 		spawn_status_text("COMBO x%d" % combo_count, Color.GOLD, enemy.global_position + Vector2(0, -80), 1.2)
 	
 	current_score += final_damage
@@ -439,28 +459,35 @@ func _on_player_damage_dealt(amount: int, type: String, match_count: int, combo_
 
 func _on_hero_skill_activated(hero_data: CharacterData) -> void:
 	if is_level_transitioning or not is_instance_valid(enemy): return
-	
-	Audio.play_sfx("combo", 0.5)
+
+	# Correct SFX and haptic feedback for skill activation
+	Audio.play_sfx("upgrade")
+	Audio.vibrate_heavy()
+
 	var final_power = GameEconomy.get_hero_skill_power(hero_data.id)
 	var elem_mult = 1.0
 	if "element_type" in enemy:
 		elem_mult = CombatMath.get_elemental_multiplier(
 			_get_element_color(hero_data.element_text), enemy.element_type
 		)
-		
+
+	# Use TurnManager for buff multiplier
+	var buff_mult = turn_manager.get_buff_multiplier() if turn_manager else 1.0
+
 	match hero_data.skill_type:
 		CharacterData.SkillType.DIRECT_DAMAGE:
-			final_power = int(final_power * active_buff_multiplier * elem_mult)
+			final_power = int(final_power * buff_mult * elem_mult)
 			enemy.take_damage(final_power, "magic")
 			spawn_status_text("SKILL %d" % final_power, Color.RED, enemy.global_position)
-			
+
 		CharacterData.SkillType.HEAL:
 			# FIX: Scale heal with hero level instead of hardcoded value
 			heal_player(final_power)
-			
+
 		CharacterData.SkillType.BUFF_ATTACK:
-			active_buff_multiplier = 1.5
-			buff_remaining_turns = 4  # BALANCE: Increased from 3 to compensate for slower mana
+			# Use TurnManager to apply buff
+			if turn_manager:
+				turn_manager.apply_buff(1.5, 4)  # BALANCE: Increased from 3 to compensate for slower mana
 			spawn_status_text("BUFF UP!", Color.GOLD, player_hp_bar.global_position)
 			
 		CharacterData.SkillType.STUN:
@@ -542,11 +569,13 @@ func _on_pause_quit() -> void:
 	get_tree().change_scene_to_file("res://00_Game/Scenes/MainMenu.tscn")
 
 func distribute_mana(type: String, count: int) -> void:
+	# DEPRECATED: This function is kept for backward compatibility
+	# Actual mana distribution now handled by _on_mana_gained() via BoardManager signal
 	if not heroes_container: return
 	for h in heroes_container.get_children():
 		if h.hero_data and _get_element_color(h.hero_data.element_text) == type:
 			if h.has_method("add_mana"):
-				h.add_mana(count * 10)  # BALANCE: Reduced from 15 to slow ultimate charge
+				h.add_mana(count * (MANA_PER_GEM * 2))  # Uses constant for consistency
 
 func _setup_battle_heroes() -> void:
 	if not heroes_container: return
@@ -583,7 +612,28 @@ func _setup_battle_heroes() -> void:
 				inst.skill_activated.connect(_on_hero_skill_activated)
 
 func _on_mana_gained(amt: int, type: String) -> void:
-	pass
+	if not heroes_container: return
+
+	# Distribute mana to heroes matching the gem color
+	for h in heroes_container.get_children():
+		if not is_instance_valid(h): continue
+		if not h.hero_data: continue
+
+		# Check if hero's element matches the gem color
+		var hero_color = _get_element_color(h.hero_data.element_text)
+		if hero_color == type:
+			# Add mana to matching hero
+			if h.has_method("add_mana"):
+				h.add_mana(amt)
+
+			# Visual feedback: Floating text (Cyan color)
+			if h is Control:
+				spawn_status_text("+%d MP" % amt, Color.CYAN, h.global_position + Vector2(0, -40))
+
+				# Pulse effect on hero to show mana gain
+				var tween = create_tween()
+				tween.tween_property(h, "modulate", Color(1.3, 1.3, 1.8), 0.1)  # Blue flash
+				tween.tween_property(h, "modulate", Color.WHITE, 0.2)
 
 func shake_screen(intensity: float, duration: float) -> void:
 	if not camera: return

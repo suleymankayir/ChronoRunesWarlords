@@ -800,7 +800,7 @@ func destroy_all_of_color(target_color: String) -> void:
 	var total_dmg = targets.size() * 15
 
 	damage_dealt.emit(total_dmg, target_color, targets.size(), current_combo)
-	mana_gained.emit(targets.size() * MANA_PER_GEM, target_color)
+	mana_gained.emit(targets.size() * 5, target_color)
 
 	for p in targets:
 		if is_instance_valid(p):
@@ -1039,7 +1039,7 @@ func _execute_board_clear_combo(pos: Vector2) -> void:
 				all_pieces[x][y] = null
 	
 	damage_dealt.emit(total_damage, "purple", width * height, current_combo)
-	mana_gained.emit(width * height * MANA_PER_GEM, "purple")
+	mana_gained.emit(width * height * 5, "purple")
 	
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
@@ -1076,7 +1076,7 @@ func _execute_cross_combo(center: Vector2i, pos: Vector2) -> void:
 			destroyed_count += 1
 	
 	damage_dealt.emit(destroyed_count * 10, "yellow", destroyed_count, current_combo)
-	mana_gained.emit(destroyed_count * MANA_PER_GEM, "yellow")
+	mana_gained.emit(destroyed_count * 5, "yellow")
 	
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
@@ -1104,7 +1104,7 @@ func _execute_triple_row_combo(center_y: int, pos: Vector2) -> void:
 					destroyed_count += 1
 	
 	damage_dealt.emit(destroyed_count * 10, "red", destroyed_count, current_combo)
-	mana_gained.emit(destroyed_count * MANA_PER_GEM, "red")
+	mana_gained.emit(destroyed_count * 5, "red")
 	
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
@@ -1132,7 +1132,7 @@ func _execute_triple_col_combo(center_x: int, pos: Vector2) -> void:
 					destroyed_count += 1
 	
 	damage_dealt.emit(destroyed_count * 10, "blue", destroyed_count, current_combo)
-	mana_gained.emit(destroyed_count * MANA_PER_GEM, "blue")
+	mana_gained.emit(destroyed_count * 5, "blue")
 	
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
@@ -1161,7 +1161,7 @@ func _execute_mega_bomb_combo(center: Vector2i, pos: Vector2) -> void:
 					destroyed_count += 1
 	
 	damage_dealt.emit(destroyed_count * 12, "yellow", destroyed_count, current_combo)
-	mana_gained.emit(destroyed_count * MANA_PER_GEM, "yellow")
+	mana_gained.emit(destroyed_count * 5, "yellow")
 	
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
