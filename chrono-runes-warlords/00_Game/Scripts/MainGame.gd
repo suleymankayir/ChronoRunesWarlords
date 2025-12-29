@@ -234,7 +234,7 @@ func _on_enemy_died() -> void:
 		_save_current_battle_state()
 	else:
 		# LEVEL CLEARED
-		GameEconomy.complete_current_level()
+		GameEconomy.complete_level(current_level)
 		# FIX: Save current HP for next level
 		GameEconomy.player_global_hp = player_current_hp
 		GameEconomy.save_game()

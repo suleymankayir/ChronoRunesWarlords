@@ -148,6 +148,9 @@ func load_game() -> bool:
 				var loaded_battle = data.get("battle_state", {})
 				if typeof(loaded_battle) == TYPE_DICTIONARY:
 					active_battle_snapshot = loaded_battle
+					# FIX: Restore current_map_level from snapshot to prevent desync
+					if "level" in active_battle_snapshot:
+						current_map_level = int(active_battle_snapshot["level"])
 				
 				# ANTI-FARMING: Load cleared levels
 				var loaded_cleared = data.get("cleared_levels", [])
@@ -165,17 +168,23 @@ func load_game() -> bool:
 		file.close()
 	return false
 
-func complete_current_level() -> void:
+func complete_level(level_id: int) -> void:
+	# Update internal state to match
+	current_map_level = level_id
+	
 	# ANTI-FARMING: Track first clear
-	if current_map_level not in cleared_levels:
-		cleared_levels.append(current_map_level)
+	if level_id not in cleared_levels:
+		cleared_levels.append(level_id)
 		
 	# Progression Logic
-	if current_map_level == max_unlocked_level:
-		max_unlocked_level += 1
+	# Use >= to be robust against desyncs (e.g. if max_unlocked was lost but we beat level X)
+	if level_id >= max_unlocked_level:
+		max_unlocked_level = level_id + 1
+		print(">>> Level ", level_id, " Complete! UNLOCKED Level ", max_unlocked_level)
 		# Save handled by caller or auto-save
 	
-	current_map_level += 1
+	# Prepare for next level
+	current_map_level = level_id + 1
 
 func start_level_from_map(level_id: int) -> void:
 	current_map_level = level_id

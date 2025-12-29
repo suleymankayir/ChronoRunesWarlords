@@ -265,40 +265,10 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 	piece_1.z_index = 0
 	piece_2.z_index = 0
 	
-	# SPECIAL INTERACTION: Rainbow Swap
-	var rainbow_piece = null
-	var other_piece = null
-	
-	if piece_1.special_type == GamePiece.SpecialType.RAINBOW:
-		rainbow_piece = piece_1
-		other_piece = piece_2
-	elif piece_2.special_type == GamePiece.SpecialType.RAINBOW:
-		rainbow_piece = piece_2
-		other_piece = piece_1
-		
-	if rainbow_piece:
-		# Use 'other_piece' color for the blast
-		var target_color = other_piece.type
-
-		# If other piece is ALSO special, maybe upgrade logic? (Future TODO)
-		# For now, just destroy everything of that color
-
-		print("RAINBOW SWAP! Creating blast for color: ", target_color)
-
-		# Visual effects (don't call activate_special_gem as it conflicts)
-		Audio.play_sfx("explosion")
-		spawn_floating_text("RAINBOW!", 0, "purple", rainbow_piece.global_position)
-
-		# Destroy the rainbow piece first (before refill)
-		if is_instance_valid(rainbow_piece):
-			damage_piece(rainbow_piece)
-			all_pieces[rainbow_piece.grid_position.x][rainbow_piece.grid_position.y] = null
-
-		# Destroy all gems of target color using safe method (prevents chain recursion)
-		await _destroy_gems_by_color_safe(target_color)
-
-		# is_processing_move will be reset by turn_finished signal flow
-		return # Stop further processing, refill is complete
+	# SPECIAL INTERACTION: Check for Special + Special combos
+	var combo_handled = await _handle_special_combo(piece_1, piece_2)
+	if combo_handled:
+		return # Combo was executed, stop further processing
 	
 	# Check Matches (Standard)
 	if find_matches():
@@ -331,7 +301,59 @@ func swap_pieces(piece_1: GamePiece, piece_2: GamePiece) -> void:
 func get_match_cluster(start_x: int, start_y: int, visited_mask: Array) -> Array[GamePiece]:
 	# Delegate to static helper (Phase 3 refactor)
 	return MatchDetector.get_match_cluster(start_x, start_y, all_pieces, visited_mask, width, height)
+
+func _detect_cluster_shape(cluster: Array[GamePiece]) -> String:
+	# Analyzes cluster shape and returns: "horizontal", "vertical", "t_shape", "l_shape", or "irregular"
+	if cluster.size() < 4:
+		return "irregular"
 	
+	var xs: Array[int] = []
+	var ys: Array[int] = []
+	
+	for p in cluster:
+		if is_instance_valid(p):
+			xs.append(p.grid_position.x)
+			ys.append(p.grid_position.y)
+	
+	if xs.is_empty() or ys.is_empty():
+		return "irregular"
+	
+	var unique_xs = []
+	var unique_ys = []
+	for x in xs:
+		if x not in unique_xs:
+			unique_xs.append(x)
+	for y in ys:
+		if y not in unique_ys:
+			unique_ys.append(y)
+	
+	var x_span = unique_xs.size()
+	var y_span = unique_ys.size()
+	
+	# Pure horizontal line: all same Y
+	if y_span == 1:
+		return "horizontal"
+	
+	# Pure vertical line: all same X
+	if x_span == 1:
+		return "vertical"
+	
+	# T-shape or L-shape: spans both X and Y
+	# T-shape: One axis has 3+ unique values, other has 2
+	# L-shape: Both axes have 2 unique values (corner pattern)
+	
+	if x_span == 2 and y_span == 2:
+		# Could be L-shape (corner)
+		return "l_shape"
+	elif (x_span >= 3 and y_span == 2) or (x_span == 2 and y_span >= 3):
+		# T-shape pattern
+		return "t_shape"
+	elif x_span >= 3 or y_span >= 3:
+		# Extended T or cross pattern
+		return "t_shape"
+	
+	return "irregular"
+
 func _create_special_gem_at(x: int, y: int, s_type: GamePiece.SpecialType, color_type: String) -> void:
 	var piece = all_pieces[x][y]
 	if not piece: return
@@ -480,24 +502,24 @@ func destroy_matched_pieces() -> void:
 							spawn_pos = cluster[0].grid_position
 						
 						var new_special_type = GamePiece.SpecialType.ROW_BLAST 
-						if list_size == 4:
-							# Check Horizontal vs Vertical shape
-							var ys = []
-							for p in cluster:
-								if is_instance_valid(p):
-									ys.append(p.grid_position.y)
-							# If all Ys are same, it's Horizontal -> Row Blast
-							# If all Xs are same, it's Vertical -> Col Blast
-							
-							var min_y = ys.min()
-							var max_y = ys.max()
-							if min_y == max_y:
-								new_special_type = GamePiece.SpecialType.ROW_BLAST
-							else:
-								new_special_type = GamePiece.SpecialType.COL_BLAST
-							
-						elif list_size >= 5:
+						
+						if list_size >= 5:
+							# 5+ in a line = Rainbow
 							new_special_type = GamePiece.SpecialType.RAINBOW
+						elif list_size == 4:
+							# Detect shape: Line (Row/Col) vs T/L (Area Bomb)
+							var shape = _detect_cluster_shape(cluster)
+							match shape:
+								"horizontal":
+									new_special_type = GamePiece.SpecialType.ROW_BLAST
+								"vertical":
+									new_special_type = GamePiece.SpecialType.COL_BLAST
+								"t_shape", "l_shape":
+									new_special_type = GamePiece.SpecialType.AREA_BOMB
+									spawn_floating_text("T/L MATCH!", 0, "yellow", cluster[0].global_position)
+								_:
+									# Irregular 4-match, default to row blast
+									new_special_type = GamePiece.SpecialType.ROW_BLAST
 							
 						# Evolution
 						_create_special_gem_at(spawn_pos.x, spawn_pos.y, new_special_type, type)
@@ -898,3 +920,323 @@ func _destroy_gems_by_color_safe(color: String) -> void:
 	# Refill Board after clearing
 	await get_tree().create_timer(0.3).timeout
 	await refill_board()
+
+# ====================
+# SPECIAL COMBO SYSTEM
+# ====================
+
+func _handle_special_combo(piece_1: GamePiece, piece_2: GamePiece) -> bool:
+	# Returns true if a special combo was handled
+	var type_1 = piece_1.special_type
+	var type_2 = piece_2.special_type
+	
+	# Both must be special for a combo (except Rainbow which works with normal gems)
+	var is_special_1 = type_1 != GamePiece.SpecialType.NONE
+	var is_special_2 = type_2 != GamePiece.SpecialType.NONE
+	
+	# Rainbow + Normal gem handling (original behavior)
+	if type_1 == GamePiece.SpecialType.RAINBOW and not is_special_2:
+		await _execute_rainbow_normal_combo(piece_1, piece_2)
+		return true
+	elif type_2 == GamePiece.SpecialType.RAINBOW and not is_special_1:
+		await _execute_rainbow_normal_combo(piece_2, piece_1)
+		return true
+	
+	# Special + Special combos (both must be special)
+	if not is_special_1 or not is_special_2:
+		return false
+	
+	var center_pos = piece_1.grid_position
+	var combo_pos = piece_1.global_position
+	
+	# Destroy both special gems first
+	if is_instance_valid(piece_1):
+		damage_piece(piece_1)
+		all_pieces[piece_1.grid_position.x][piece_1.grid_position.y] = null
+	if is_instance_valid(piece_2):
+		damage_piece(piece_2)
+		all_pieces[piece_2.grid_position.x][piece_2.grid_position.y] = null
+	
+	# --- RAINBOW + RAINBOW ---
+	if type_1 == GamePiece.SpecialType.RAINBOW and type_2 == GamePiece.SpecialType.RAINBOW:
+		await _execute_board_clear_combo(combo_pos)
+		return true
+	
+	# --- RAINBOW + OTHER SPECIAL ---
+	if type_1 == GamePiece.SpecialType.RAINBOW:
+		await _execute_rainbow_special_combo(piece_2.type, type_2, combo_pos)
+		return true
+	elif type_2 == GamePiece.SpecialType.RAINBOW:
+		await _execute_rainbow_special_combo(piece_1.type, type_1, combo_pos)
+		return true
+	
+	# --- SAME TYPE COMBOS ---
+	if type_1 == type_2:
+		match type_1:
+			GamePiece.SpecialType.ROW_BLAST:
+				await _execute_triple_row_combo(center_pos.y, combo_pos)
+			GamePiece.SpecialType.COL_BLAST:
+				await _execute_triple_col_combo(center_pos.x, combo_pos)
+			GamePiece.SpecialType.AREA_BOMB:
+				await _execute_mega_bomb_combo(center_pos, combo_pos)
+		return true
+	
+	# --- CROSS TYPE COMBOS ---
+	# ROW + COL = Cross
+	if (type_1 == GamePiece.SpecialType.ROW_BLAST and type_2 == GamePiece.SpecialType.COL_BLAST) or \
+	   (type_1 == GamePiece.SpecialType.COL_BLAST and type_2 == GamePiece.SpecialType.ROW_BLAST):
+		await _execute_cross_combo(center_pos, combo_pos)
+		return true
+	
+	# ROW/COL + BOMB = 3 rows/cols
+	if type_1 == GamePiece.SpecialType.ROW_BLAST and type_2 == GamePiece.SpecialType.AREA_BOMB:
+		await _execute_triple_row_combo(center_pos.y, combo_pos)
+		return true
+	if type_2 == GamePiece.SpecialType.ROW_BLAST and type_1 == GamePiece.SpecialType.AREA_BOMB:
+		await _execute_triple_row_combo(center_pos.y, combo_pos)
+		return true
+	if type_1 == GamePiece.SpecialType.COL_BLAST and type_2 == GamePiece.SpecialType.AREA_BOMB:
+		await _execute_triple_col_combo(center_pos.x, combo_pos)
+		return true
+	if type_2 == GamePiece.SpecialType.COL_BLAST and type_1 == GamePiece.SpecialType.AREA_BOMB:
+		await _execute_triple_col_combo(center_pos.x, combo_pos)
+		return true
+	
+	return false
+
+func _execute_rainbow_normal_combo(rainbow: GamePiece, other: GamePiece) -> void:
+	var target_color = other.type
+	print("RAINBOW SWAP! Creating blast for color: ", target_color)
+	
+	Audio.play_sfx("explosion")
+	spawn_floating_text("RAINBOW!", 0, "purple", rainbow.global_position)
+	
+	if is_instance_valid(rainbow):
+		damage_piece(rainbow)
+		all_pieces[rainbow.grid_position.x][rainbow.grid_position.y] = null
+	
+	await _destroy_gems_by_color_safe(target_color)
+
+func _execute_board_clear_combo(pos: Vector2) -> void:
+	print("!!! MEGA COMBO: RAINBOW + RAINBOW = BOARD CLEAR !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("BOARD CLEAR!", 0, "purple", pos)
+	
+	current_combo += 1
+	var total_damage = 0
+	
+	# Destroy everything
+	for x in range(width):
+		for y in range(height):
+			var piece = all_pieces[x][y]
+			if piece and is_instance_valid(piece):
+				total_damage += 20  # Higher damage per gem for board clear
+				damage_piece(piece)
+				all_pieces[x][y] = null
+	
+	damage_dealt.emit(total_damage, "purple", width * height, current_combo)
+	mana_gained.emit(width * height * 5, "purple")
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+func _execute_cross_combo(center: Vector2i, pos: Vector2) -> void:
+	print("!!! CROSS COMBO: ROW + COL !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("CROSS BLAST!", 0, "yellow", pos)
+	
+	current_combo += 1
+	var destroyed_count = 0
+	var destroyed_positions: Array[Vector2i] = []
+	
+	# Clear row
+	for x in range(width):
+		if Vector2i(x, center.y) not in destroyed_positions:
+			destroyed_positions.append(Vector2i(x, center.y))
+	
+	# Clear column
+	for y in range(height):
+		if Vector2i(center.x, y) not in destroyed_positions:
+			destroyed_positions.append(Vector2i(center.x, y))
+	
+	# Destroy all marked positions
+	for grid_pos in destroyed_positions:
+		var piece = all_pieces[grid_pos.x][grid_pos.y]
+		if piece and is_instance_valid(piece):
+			# Chain reaction for other specials
+			if piece.special_type != GamePiece.SpecialType.NONE:
+				activate_special_gem(piece)
+			damage_piece(piece)
+			all_pieces[grid_pos.x][grid_pos.y] = null
+			destroyed_count += 1
+	
+	damage_dealt.emit(destroyed_count * 10, "yellow", destroyed_count, current_combo)
+	mana_gained.emit(destroyed_count * 5, "yellow")
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+func _execute_triple_row_combo(center_y: int, pos: Vector2) -> void:
+	print("!!! TRIPLE ROW COMBO !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("3X ROW!", 0, "red", pos)
+	
+	current_combo += 1
+	var destroyed_count = 0
+	
+	# Clear 3 rows (center-1, center, center+1)
+	for dy in range(-1, 2):
+		var target_y = center_y + dy
+		if target_y >= 0 and target_y < height:
+			for x in range(width):
+				var piece = all_pieces[x][target_y]
+				if piece and is_instance_valid(piece):
+					if piece.special_type != GamePiece.SpecialType.NONE:
+						activate_special_gem(piece)
+					damage_piece(piece)
+					all_pieces[x][target_y] = null
+					destroyed_count += 1
+	
+	damage_dealt.emit(destroyed_count * 10, "red", destroyed_count, current_combo)
+	mana_gained.emit(destroyed_count * 5, "red")
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+func _execute_triple_col_combo(center_x: int, pos: Vector2) -> void:
+	print("!!! TRIPLE COL COMBO !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("3X COL!", 0, "blue", pos)
+	
+	current_combo += 1
+	var destroyed_count = 0
+	
+	# Clear 3 columns (center-1, center, center+1)
+	for dx in range(-1, 2):
+		var target_x = center_x + dx
+		if target_x >= 0 and target_x < width:
+			for y in range(height):
+				var piece = all_pieces[target_x][y]
+				if piece and is_instance_valid(piece):
+					if piece.special_type != GamePiece.SpecialType.NONE:
+						activate_special_gem(piece)
+					damage_piece(piece)
+					all_pieces[target_x][y] = null
+					destroyed_count += 1
+	
+	damage_dealt.emit(destroyed_count * 10, "blue", destroyed_count, current_combo)
+	mana_gained.emit(destroyed_count * 5, "blue")
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+func _execute_mega_bomb_combo(center: Vector2i, pos: Vector2) -> void:
+	print("!!! MEGA BOMB COMBO: 5x5 EXPLOSION !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("MEGA BOMB!", 0, "yellow", pos)
+	
+	current_combo += 1
+	var destroyed_count = 0
+	
+	# Clear 5x5 area
+	for dx in range(-2, 3):
+		for dy in range(-2, 3):
+			var tx = center.x + dx
+			var ty = center.y + dy
+			if tx >= 0 and tx < width and ty >= 0 and ty < height:
+				var piece = all_pieces[tx][ty]
+				if piece and is_instance_valid(piece):
+					if piece.special_type != GamePiece.SpecialType.NONE:
+						activate_special_gem(piece)
+					damage_piece(piece)
+					all_pieces[tx][ty] = null
+					destroyed_count += 1
+	
+	damage_dealt.emit(destroyed_count * 12, "yellow", destroyed_count, current_combo)
+	mana_gained.emit(destroyed_count * 5, "yellow")
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+func _execute_rainbow_special_combo(target_color: String, special_type: GamePiece.SpecialType, pos: Vector2) -> void:
+	print("!!! RAINBOW + SPECIAL COMBO: Converting all ", target_color, " to ", special_type, " !!!")
+	Audio.play_sfx("explosion")
+	Audio.vibrate_heavy()
+	spawn_floating_text("ULTRA COMBO!", 0, "purple", pos)
+	
+	# First pass: Convert all gems of target color to the special type
+	var converted_pieces: Array[GamePiece] = []
+	for x in range(width):
+		for y in range(height):
+			var piece = all_pieces[x][y]
+			if piece and is_instance_valid(piece) and piece.type == target_color:
+				piece.special_type = special_type
+				_update_piece_visual(piece)
+				converted_pieces.append(piece)
+				
+				# Small VFX for conversion
+				var t = create_tween()
+				t.tween_property(piece, "scale", Vector2(1.3, 1.3), 0.1)
+				t.tween_property(piece, "scale", Vector2.ONE, 0.1)
+	
+	# Wait for conversion animation
+	await get_tree().create_timer(0.3).timeout
+	
+	# Second pass: Activate all converted specials (chain explosion!)
+	current_combo += 1
+	for piece in converted_pieces:
+		if is_instance_valid(piece):
+			# Store position before activation
+			var grid_pos = piece.grid_position
+			
+			# Disable to prevent infinite recursion
+			piece.special_type = GamePiece.SpecialType.NONE
+			
+			# Execute the effect based on type
+			match special_type:
+				GamePiece.SpecialType.ROW_BLAST:
+					_clear_row_silent(grid_pos.y)
+				GamePiece.SpecialType.COL_BLAST:
+					_clear_col_silent(grid_pos.x)
+				GamePiece.SpecialType.AREA_BOMB:
+					_clear_area_silent(grid_pos, 1)
+			
+			# Destroy the converted piece
+			damage_piece(piece)
+			all_pieces[grid_pos.x][grid_pos.y] = null
+	
+	await get_tree().create_timer(0.3).timeout
+	await refill_board()
+
+# Helper: Clear row without emitting signals (for combo chains)
+func _clear_row_silent(y: int) -> void:
+	for x in range(width):
+		var piece = all_pieces[x][y]
+		if piece and is_instance_valid(piece):
+			damage_piece(piece)
+			all_pieces[x][y] = null
+
+# Helper: Clear column without emitting signals
+func _clear_col_silent(x: int) -> void:
+	for y in range(height):
+		var piece = all_pieces[x][y]
+		if piece and is_instance_valid(piece):
+			damage_piece(piece)
+			all_pieces[x][y] = null
+
+# Helper: Clear area without emitting signals
+func _clear_area_silent(center: Vector2i, radius: int) -> void:
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			var tx = center.x + dx
+			var ty = center.y + dy
+			if tx >= 0 and tx < width and ty >= 0 and ty < height:
+				var piece = all_pieces[tx][ty]
+				if piece and is_instance_valid(piece):
+					damage_piece(piece)
+					all_pieces[tx][ty] = null
